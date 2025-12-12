@@ -1,0 +1,16 @@
+# CODEOWNERS - HyperKit PRD Repository
+# These users are responsible for reviewing all changes
+
+# Default owners for everything in the repo
+* @Tristan-T-Dev @ArhonJay @Justinedevs
+
+# Documentation ownership
+/src/documentation/ @Tristan-T-Dev @ArhonJay @Justinedevs
+*.md @Tristan-T-Dev @ArhonJay @Justinedevs
+
+# Technical documentation
+/src/technical/ @Tristan-T-Dev @ArhonJay @Justinedevs
+
+# CI/CD and scripts
+/.github/ @Tristan-T-Dev @ArhonJay @Justinedevs
+/version/scripts/ @Tristan-T-Dev @ArhonJay @Justinedevs
