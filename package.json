@@ -1,0 +1,25 @@
+{
+  "name": "prd",
+  "version": "1.0.0",
+  "description": "HyperKit Project Requirements Documentation",
+  "private": true,
+  "scripts": {
+    "commit": "node version/scripts/parallel-commit.js",
+    "commit:dry": "node version/scripts/parallel-commit.js --dry-run",
+    "commit:sh": "bash version/scripts/parallel-commit.sh",
+    "commit:sh:dry": "bash version/scripts/parallel-commit.sh --dry-run",
+    "commit:all": "git add . && git commit -m \"chore: update all files\"",
+    "commit:auto": "bash version/scripts/parallel-commit.sh --max 3",
+    "status": "git status",
+    "changes": "git status --porcelain",
+    "staged": "git diff --cached --name-only"
+  },
+  "keywords": [
+    "hyperkit",
+    "documentation",
+    "prd"
+  ],
+  "author": "",
+  "license": "UNLICENSED"
+}
+
