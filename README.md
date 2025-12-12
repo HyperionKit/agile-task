@@ -5,6 +5,8 @@
 
 HyperKit Project Requirements Documentation (PRD) repository. Central hub for project management, task tracking, and technical documentation.
 
+<img src="./src/documentation/reference/Technical Design.png" alt="HyperKit: A Technical Map of the AI-Native Web3 Ecosystem" width="100%">
+
 ## Quick Start
 
 ### Prerequisites
