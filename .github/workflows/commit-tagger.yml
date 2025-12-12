@@ -1,0 +1,51 @@
+name: Commit Tagger
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  tag-commit:
+    name: Tag Commit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Get Commit Details
+        id: commit
+        run: |
+          COMMIT_SHA="${GITHUB_SHA::7}"
+          AUTHOR="${{ github.actor }}"
+          
+          echo "short_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+          
+          # Check CODEOWNER status
+          CODEOWNERS="Tristan-T-Dev ArhonJay Justinedevs"
+          if echo "$CODEOWNERS" | grep -qi "$AUTHOR"; then
+            echo "role=CODEOWNER" >> $GITHUB_OUTPUT
+          else
+            echo "role=Contributor" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Summary
+        run: |
+          echo "## Commit Details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ steps.commit.outputs.short_sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Author | @${{ steps.commit.outputs.author }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Role | **[${{ steps.commit.outputs.role }}]** |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Log Output
+        run: |
+          echo "=========================================="
+          echo "Commit[${{ steps.commit.outputs.short_sha }}]"
+          echo "@${{ steps.commit.outputs.author }} [${{ steps.commit.outputs.role }}]"
+          echo "=========================================="

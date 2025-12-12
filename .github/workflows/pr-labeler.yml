@@ -1,0 +1,94 @@
+name: PR Labeler
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label-pr:
+    name: Label PR
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Get PR Info
+        id: pr_info
+        run: |
+          PR_NUM="${{ github.event.pull_request.number }}"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+          COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
+          SHORT_SHA="${COMMIT_SHA::7}"
+          
+          echo "pr_number=$PR_NUM" >> $GITHUB_OUTPUT
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          
+          # Check CODEOWNER status
+          CODEOWNERS="Tristan-T-Dev ArhonJay Justinedevs"
+          if echo "$CODEOWNERS" | grep -qi "$AUTHOR"; then
+            echo "is_codeowner=true" >> $GITHUB_OUTPUT
+            echo "role=CODEOWNER" >> $GITHUB_OUTPUT
+          else
+            echo "is_codeowner=false" >> $GITHUB_OUTPUT
+            echo "role=Contributor" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Display PR Info
+        run: |
+          echo "=========================================="
+          echo "PR#${{ steps.pr_info.outputs.pr_number }}"
+          echo "Commit[${{ steps.pr_info.outputs.short_sha }}]"
+          echo "@${{ steps.pr_info.outputs.author }} [${{ steps.pr_info.outputs.role }}]"
+          echo "=========================================="
+
+      - name: Add Labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ github.event.pull_request.number }};
+            const author = '${{ steps.pr_info.outputs.author }}';
+            const isCodeowner = '${{ steps.pr_info.outputs.is_codeowner }}' === 'true';
+            
+            const labels = ['documentation'];
+            labels.push(isCodeowner ? 'codeowner' : 'contributor');
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: labels
+            });
+            
+            console.log(`PR#${prNumber} - @${author} [${isCodeowner ? 'CODEOWNER' : 'Contributor'}]`);
+
+      - name: Comment on New PR
+        uses: actions/github-script@v7
+        if: github.event.action == 'opened'
+        with:
+          script: |
+            const prNumber = ${{ github.event.pull_request.number }};
+            const author = '${{ steps.pr_info.outputs.author }}';
+            const shortSha = '${{ steps.pr_info.outputs.short_sha }}';
+            const role = '${{ steps.pr_info.outputs.role }}';
+            
+            const body = `## PR#${prNumber}
+            
+| Field | Value |
+|-------|-------|
+| Commit | \`${shortSha}\` |
+| Author | @${author} **[${role}]** |
+
+Thanks for your contribution!`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: body
+            });

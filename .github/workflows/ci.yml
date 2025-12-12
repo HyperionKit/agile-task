@@ -1,0 +1,55 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  validate:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Commit Info
+        id: commit_info
+        run: |
+          COMMIT_SHA="${GITHUB_SHA::7}"
+          AUTHOR="${{ github.actor }}"
+          
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+          
+          # Check CODEOWNER status
+          CODEOWNERS="Tristan-T-Dev ArhonJay Justinedevs"
+          if echo "$CODEOWNERS" | grep -qi "$AUTHOR"; then
+            echo "role=CODEOWNER" >> $GITHUB_OUTPUT
+          else
+            echo "role=Contributor" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Display Commit Info
+        run: |
+          echo "=========================================="
+          echo "Commit[${{ steps.commit_info.outputs.commit_sha }}]"
+          echo "@${{ steps.commit_info.outputs.author }} [${{ steps.commit_info.outputs.role }}]"
+          echo "=========================================="
+
+      - name: Validate Markdown Files
+        run: |
+          echo "Validating documentation..."
+          MD_COUNT=$(find . -name "*.md" -type f | wc -l)
+          echo "Found $MD_COUNT markdown files"
+          
+      - name: Check Structure
+        run: |
+          echo "Checking project structure..."
+          [ -d "src/documentation" ] && echo "src/documentation exists" || echo "Missing: src/documentation"
+          [ -d "src/technical" ] && echo "src/technical exists" || echo "Missing: src/technical"
+          [ -f "CODEOWNERS" ] && echo "CODEOWNERS exists" || echo "Missing: CODEOWNERS"
