@@ -15,7 +15,7 @@ HyperKit Project Requirements Documentation (PRD) repository. Central hub for pr
 ### Setup
 
 ```bash
-git clone https://github.com/your-org/PRD.git
+git clone https://github.com/hyperionkit/PRD.git
 cd PRD
 npm install
 ```
