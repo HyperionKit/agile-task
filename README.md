@@ -7,6 +7,10 @@ HyperKit Project Requirements Documentation (PRD) repository. Central hub for pr
 
 <img src="./src/documentation/reference/Technical Design.png" alt="HyperKit: A Technical Map of the AI-Native Web3 Ecosystem" width="100%">
 
+<img src="./src/documentation/reference/Technical Development Timeline.png" alt="HyperKit: The AI-Native Web3 Development Platform" width="100%">
+
+<img src="./src/documentation/reference/Technical Strategy and Value Blueprint.png" alt="HyperKit: Technical Strategy and Value Blueprint" width="100%">
+
 ## Quick Start
 
 ### Prerequisites
