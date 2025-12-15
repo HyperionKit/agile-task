@@ -8,7 +8,7 @@
 - Status: BACKLOG
 - Due Date: 2026-01-02
 - Estimated Hours: 12h
-- Actual Hours: 
+- Github OSS: https://github.com/sentient-agi/ROMA
 
 ## Problem
 Complex build requests require multi-step decomposition. Without ROMA planner:
