@@ -27,8 +27,13 @@ The system automatically:
 
 Set environment variables to configure project:
 ```bash
-export GITHUB_PROJECT_NUMBER=1  # Your project number
-export GITHUB_PROJECT_OWNER=HyperionKit  # Project owner
+# In your .env file:
+GITHUB_PROJECT_NUMBER=1  # Your project number
+GITHUB_PROJECT_OWNER=HyperionKit  # Project owner
+
+# Or export in your shell:
+export GITHUB_PROJECT_NUMBER=1
+export GITHUB_PROJECT_OWNER=HyperionKit
 ```
 
 Or in GitHub Actions, add to workflow:
@@ -40,7 +45,28 @@ env:
 
 ## Setup
 
-### 1. Install GitHub CLI
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+This installs `dotenv` which loads environment variables from `.env` file.
+
+### 2. Configure Environment Variables
+
+**Required**: Copy `.env.example` to `.env` and fill in your values:
+
+```bash
+cp .env.example .env
+# Edit .env with your actual GitHub token and project settings
+```
+
+**Important**: The `GITHUB_TOKEN` is now **required**. Get it from:
+- https://github.com/settings/tokens
+- Required scopes: `repo`, `read:org`, `read:project`, `write:project`
+
+### 3. Install GitHub CLI
 
 ```bash
 # macOS
