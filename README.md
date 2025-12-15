@@ -29,7 +29,7 @@ npm install
 cp .env.example .env
 # Edit .env with your GitHub token and project settings
 # Get token from: https://github.com/settings/tokens
-# Required scopes: repo, read:org, read:project, write:project
+# Required scopes: repo, read:org, project
 ```
 
 ### Commit Changes
