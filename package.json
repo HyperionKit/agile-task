@@ -12,7 +12,14 @@
     "commit:auto": "bash version/scripts/parallel-commit.sh --max 3",
     "status": "git status",
     "changes": "git status --porcelain",
-    "staged": "git diff --cached --name-only"
+    "staged": "git diff --cached --name-only",
+    "issue:create": "node version/scripts/create-task-issue.js",
+    "issue:create:dry": "node version/scripts/create-task-issue.js --dry-run",
+    "issue:sync": "node version/scripts/sync-task-issues.js",
+    "issue:sync:changed": "node version/scripts/sync-task-issues.js --changed-only",
+    "issue:update": "node version/scripts/update-issue-statuses.js",
+    "issue:close": "node version/scripts/close-completed-issues.js",
+    "issue:setup-labels": "node version/scripts/setup-labels.js"
   },
   "keywords": [
     "hyperkit",
