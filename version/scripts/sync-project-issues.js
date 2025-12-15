@@ -49,7 +49,8 @@ function getProjectOwnerType(owner) {
 }
 
 // Find task file for an issue by searching for issue number in task files
-function findTaskFileForIssue(issueNumber) {
+// Also matches by task ID in issue title (e.g., TASK-M3-AA-001)
+function findTaskFileForIssue(issueNumber, issueTitle = null) {
   const taskDirs = [
     'src/documentation/agile.role/aaron',
     'src/documentation/agile.role/justine',
@@ -58,6 +59,15 @@ function findTaskFileForIssue(issueNumber) {
     'src/documentation/overdue/justine',
     'src/documentation/overdue/tristan'
   ];
+  
+  // Strategy 1: Extract task ID from issue title (e.g., "TASK-M3-AA-001-entrypoint-v07: EntryPoint V0.7 Integration #17")
+  let taskIdFromTitle = null;
+  if (issueTitle) {
+    const taskIdMatch = issueTitle.match(/TASK-([A-Z0-9-]+)/);
+    if (taskIdMatch) {
+      taskIdFromTitle = taskIdMatch[1];
+    }
+  }
   
   for (const dir of taskDirs) {
     const fullPath = path.join(__dirname, '../../', dir);
@@ -68,11 +78,29 @@ function findTaskFileForIssue(issueNumber) {
       if (!file.startsWith('TASK-') || !file.endsWith('.md')) continue;
       
       const filePath = path.join(fullPath, file);
-      const content = fs.readFileSync(filePath, 'utf-8');
       
-      // Check if this task file references this issue number
-      if (content.includes(`#${issueNumber}`) || content.includes(`issues/${issueNumber}`)) {
+      // Strategy 1a: Match by task ID from title
+      if (taskIdFromTitle && file.includes(taskIdFromTitle)) {
         return filePath;
+      }
+      
+      // Strategy 1b: Match by full task ID pattern
+      const fileNameTaskId = file.replace('TASK-', '').replace('.md', '');
+      if (taskIdFromTitle && fileNameTaskId.startsWith(taskIdFromTitle)) {
+        return filePath;
+      }
+      
+      // Strategy 2: Check if file content references issue number
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        if (content.includes(`#${issueNumber}`) || 
+            content.includes(`issues/${issueNumber}`) ||
+            content.includes(`/issues/${issueNumber}`)) {
+          return filePath;
+        }
+      } catch (e) {
+        // Skip if file can't be read
+        continue;
       }
     }
   }
@@ -147,10 +175,14 @@ async function updateProjectField(projectId, itemId, fieldId, value) {
   try {
     execSync(
       `gh api graphql -f query="${mutation.replace(/"/g, '\\"')}"`,
-      { encoding: 'utf-8', stdio: 'ignore', shell: true }
+      { encoding: 'utf-8', stdio: 'pipe', shell: true }
     );
     return true;
   } catch (error) {
+    // Log error for debugging (first few only to avoid spam)
+    if (Math.random() < 0.1) { // Log 10% of errors
+      console.warn(`  ⚠️  Field update failed: ${error.message.substring(0, 100)}`);
+    }
     return false;
   }
 }
@@ -176,7 +208,7 @@ async function syncProjectIssues() {
     const taskMonthMap = new Map();
     
     for (const issue of issues) {
-      const taskFilePath = findTaskFileForIssue(issue.number);
+      const taskFilePath = findTaskFileForIssue(issue.number, issue.title);
       if (taskFilePath) {
         const taskData = getTaskDataFromFile(taskFilePath);
         if (taskData) {
@@ -188,6 +220,9 @@ async function syncProjectIssues() {
       }
     }
     console.log(`✅ Found ${taskStatusMap.size} issues with task file status (source of truth)`);
+    if (taskStatusMap.size < issues.length / 2) {
+      console.log(`⚠️  Warning: Only ${taskStatusMap.size}/${issues.length} issues matched to task files. Check task file naming or issue titles.`);
+    }
     
     // Determine if owner is user or organization
     const ownerType = getProjectOwnerType(PROJECT_OWNER);
@@ -297,7 +332,7 @@ async function syncProjectIssues() {
       const iterCount = iterationField.configuration?.iterations?.length || 0;
       console.log(`✅ Iteration field found: ${iterationField.name}, iterations available: ${iterCount}`);
       if (iterCount > 0) {
-        console.log(`   Available iterations: ${iterationField.configuration.iterations.map(i => i.title || i.id).join(', ')}`);
+        console.log(`   Available iterations: ${iterationField.configuration.iterations.map(i => `${i.title || i.id} (${i.startDate || 'no date'})`).join(', ')}`);
       }
     } else {
       console.log(`⚠️  Iteration field not found. Available field names: ${fields.map(f => f.name).filter(Boolean).join(', ')}`);
@@ -371,6 +406,8 @@ async function syncProjectIssues() {
     // Update project fields for all issues
     let updated = 0;
     let processed = 0;
+    let iterationUpdatedCount = 0;
+    let iterationFailCount = 0;
     
     console.log(`\nUpdating project fields for ${issues.length} issues...`);
     
@@ -567,9 +604,16 @@ async function syncProjectIssues() {
             if (monthNum) {
               // Try multiple matching strategies for month number:
               for (const iteration of iterations) {
-                // Strategy 2a: Match month number in iteration title
+                // Strategy 2a: Match month number in iteration title (e.g., "Iteration 3", "Month 3")
                 if (iteration.title) {
                   const titleLower = iteration.title.toLowerCase();
+                  // Extract iteration number from title (e.g., "Iteration 3" -> "3")
+                  const iterNumMatch = titleLower.match(/(?:iteration|month|sprint)\s*(\d+)/);
+                  if (iterNumMatch && iterNumMatch[1] === monthNum) {
+                    matchedIteration = iteration;
+                    break;
+                  }
+                  // Fallback: Check if title contains month number
                   if (
                     titleLower.includes(`month ${monthNum}`) ||
                     titleLower.includes(`sprint ${monthNum}`) ||
@@ -648,15 +692,113 @@ async function syncProjectIssues() {
             });
             if (success) {
               issueUpdated = true;
-              // Log first 10 matches for debugging
-              if (processed <= 10) {
+              iterationUpdatedCount++;
+              // Log first 20 matches for debugging
+              if (iterationUpdatedCount <= 20) {
                 console.log(`  ✅ Issue #${issue.number}: Iteration="${matchedIteration.title || matchedIteration.id}" (month: ${month || 'N/A'}, due: ${taskDueDate || 'N/A'})`);
+              }
+            } else {
+              // Log update failures
+              if (iterationUpdatedCount <= 20) {
+                console.log(`  ❌ Issue #${issue.number}: Failed to update iteration field`);
               }
             }
           } else {
-            // Debug: Log why iteration wasn't matched (first 10 only)
-            if (processed <= 10 && (month || taskDueDate)) {
-              console.log(`  ⚠️  Issue #${issue.number}: No iteration match (month: ${month || 'N/A'}, dueDate: ${taskDueDate || 'N/A'}, available: ${iterations.length} iterations)`);
+            // Strategy 4: If no match found, try to assign to current iteration based on today's date
+            // This ensures tasks show up in "Current iteration" view
+            if (!matchedIteration) {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              
+              // Find current iteration (iteration that contains today's date)
+              for (const iteration of iterations) {
+                if (iteration.startDate) {
+                  try {
+                    const iterStart = new Date(iteration.startDate);
+                    iterStart.setHours(0, 0, 0, 0);
+                    const iterEnd = new Date(iterStart);
+                    iterEnd.setDate(iterEnd.getDate() + (iteration.duration || 14));
+                    
+                    if (today >= iterStart && today <= iterEnd) {
+                      matchedIteration = iteration;
+                      console.log(`  🔄 Issue #${issue.number}: Assigning to current iteration "${iteration.title}" (no match found, using current iteration)`);
+                      break;
+                    }
+                  } catch (e) {
+                    // Skip invalid dates
+                  }
+                }
+              }
+              
+              // If still no match, assign to latest iteration
+              if (!matchedIteration && iterations.length > 0) {
+                // Find latest iteration by start date
+                let latestIter = null;
+                let latestDate = null;
+                for (const iter of iterations) {
+                  if (iter.startDate) {
+                    const iterDate = new Date(iter.startDate);
+                    if (!latestDate || iterDate > latestDate) {
+                      latestDate = iterDate;
+                      latestIter = iter;
+                    }
+                  }
+                }
+                if (latestIter) {
+                  matchedIteration = latestIter;
+                  console.log(`  🔄 Issue #${issue.number}: Assigning to latest iteration "${latestIter.title}" (fallback)`);
+                }
+              }
+              
+              // Update with matched iteration (even if it's a fallback)
+              if (matchedIteration && matchedIteration.id) {
+                const success = await updateProjectField(projectId, itemId, iterationField.id, {
+                  type: 'iteration',
+                  iterationId: matchedIteration.id
+                });
+                if (success) {
+                  issueUpdated = true;
+                  iterationUpdatedCount++;
+                }
+              } else {
+                // Debug: Log why iteration wasn't matched (first 10 only)
+                if (iterationFailCount < 10 && (month || taskDueDate)) {
+                  console.log(`  ⚠️  Issue #${issue.number}: No iteration match (month: ${month || 'N/A'}, dueDate: ${taskDueDate || 'N/A'}, available: ${iterations.length} iterations)`);
+                  iterationFailCount++;
+                }
+              }
+            }
+          }
+        } else {
+          // No month or due date, but still try to assign to current iteration
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          for (const iteration of iterations) {
+            if (iteration.startDate) {
+              try {
+                const iterStart = new Date(iteration.startDate);
+                iterStart.setHours(0, 0, 0, 0);
+                const iterEnd = new Date(iterStart);
+                iterEnd.setDate(iterEnd.getDate() + (iteration.duration || 14));
+                
+                if (today >= iterStart && today <= iterEnd) {
+                  const success = await updateProjectField(projectId, itemId, iterationField.id, {
+                    type: 'iteration',
+                    iterationId: iteration.id
+                  });
+                  if (success) {
+                    issueUpdated = true;
+                    iterationUpdatedCount++;
+                    if (iterationUpdatedCount <= 10) {
+                      console.log(`  🔄 Issue #${issue.number}: Assigned to current iteration "${iteration.title}" (no month/due date)`);
+                    }
+                  }
+                  break;
+                }
+              } catch (e) {
+                // Skip invalid dates
+              }
             }
           }
         }
@@ -750,12 +892,18 @@ async function syncProjectIssues() {
     
     console.log(`   - ${taskStatusMap.size} issues synced from task files (source of truth)`);
     console.log(`   - ${criticalCount} issues marked as Critical (overdue/rush)`);
+    console.log(`   - ${iterationUpdatedCount} issues assigned to iterations`);
+    if (iterationFailCount > 0) {
+      console.log(`   - ${iterationFailCount} issues couldn't be matched to iterations`);
+    }
     console.log('\n📊 Project views synced:');
-    console.log('   - Backlog: Filters by Status field (Todo)');
-    console.log('   - Board: Columns based on Status (Todo/In Progress/Done/Critical)');
-    console.log('   - Critical Column: Overdue tasks and rush items');
-    console.log('   - Current iteration: Filters by Iteration + Status');
-    console.log('   - Roadmap: Timeline based on Start/Target dates + Status');
+    console.log('   - Backlog: Filters by Status field (Todo) - All tasks with Todo status');
+    console.log('   - Board: Columns based on Status (Todo/In Progress/Done/Critical) - All tasks grouped by status');
+    console.log('   - Critical Column: Overdue tasks and rush items - Tasks past due date or marked OVERDUE');
+    console.log('   - Current iteration: Filters by Iteration + Status - Tasks in current iteration, grouped by status');
+    console.log('   - Roadmap: Timeline based on Start/Target dates + Status - All tasks on timeline');
+    console.log('\n   ⚠️  IMPORTANT: All views use the same Status and Iteration fields.');
+    console.log('   Changes to Status or Iteration in one view will sync to all other views automatically.');
     console.log('\n   Fields updated:');
     console.log('   - Status: From task files (BACKLOG→Todo, IN_PROGRESS→In Progress, DONE→Done, OVERDUE→Critical)');
     console.log('   - Overdue Detection: Tasks past due date automatically marked as Critical');
