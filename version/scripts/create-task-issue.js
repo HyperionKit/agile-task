@@ -16,7 +16,7 @@ if (!process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
   console.error('❌ Error: GITHUB_TOKEN or GH_TOKEN environment variable is required');
   console.error('   Set it in your .env file or export it in your shell');
   console.error('   Get token from: https://github.com/settings/tokens');
-  console.error('   Required scopes: repo, read:org, read:project, write:project');
+  console.error('   Required scopes: repo, read:org, project');
   process.exit(1);
 }
 
@@ -428,6 +428,24 @@ async function closeIssue(issueNumber, reason) {
   }
 }
 
+// Helper to determine if owner is user or organization
+function getProjectOwnerType(owner) {
+  try {
+    const query = `query { organization(login: "${owner}") { id } }`;
+    const output = execSync(
+      `gh api graphql -f query="${query.replace(/"/g, '\\"')}"`,
+      { encoding: 'utf-8', stdio: 'pipe' }
+    );
+    const data = JSON.parse(output);
+    if (data?.data?.organization?.id) {
+      return 'organization';
+    }
+  } catch (error) {
+    // If organization query fails, assume it's a user
+  }
+  return 'user';
+}
+
 // Add issue to GitHub Project
 async function addIssueToProject(issueNumber, task) {
   if (DRY_RUN) {
@@ -452,13 +470,17 @@ async function addIssueToProject(issueNumber, task) {
       log(`gh project command failed, trying GraphQL API...`, 'INFO');
     }
     
+    // Determine if owner is user or organization
+    const ownerType = getProjectOwnerType(PROJECT_OWNER);
+    const queryField = ownerType === 'organization' ? 'organization' : 'user';
+    
     // Fallback to GraphQL API
-    const projectQuery = `query { organization(login: "${PROJECT_OWNER}") { projectV2(number: ${PROJECT_NUMBER}) { id } } }`;
+    const projectQuery = `query { ${queryField}(login: "${PROJECT_OWNER}") { projectV2(number: ${PROJECT_NUMBER}) { id } } }`;
     const projectCmd = `gh api graphql -f query='${projectQuery.replace(/'/g, "\\'")}'`;
     
     const projectOutput = execSync(projectCmd, { encoding: 'utf-8', stdio: 'pipe' });
     const projectData = JSON.parse(projectOutput);
-    const projectId = projectData?.data?.organization?.projectV2?.id;
+    const projectId = projectData?.data?.[queryField]?.projectV2?.id;
     
     if (projectId) {
       // Add issue to project using GraphQL
