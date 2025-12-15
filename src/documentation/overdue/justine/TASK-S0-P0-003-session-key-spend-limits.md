@@ -1,13 +1,13 @@
-# TASK-S0-P0-003: Session Key Granular Spend Limits (CRITICAL)
+# TASK-M3-046: Session Key Granular Spend Limits (CRITICAL)
 
 ## Metadata
 - Assignee: Justine
 - Role: CPOO/Product Lead
-- Sprint: 0 (Pre-Sprint Critical)
+- Month: 3 (December 2025)
 - Priority: P0 (CRITICAL)
 - Status: OVERDUE
 - Original Due Date: 2025-12-11
-- New Due Date: 2025-12-14
+- New Due Date: 2025-12-15
 - Estimated Hours: 8h
 - Actual Hours: 
 
