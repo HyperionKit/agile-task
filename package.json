@@ -20,7 +20,8 @@
     "issue:update": "node version/scripts/update-issue-statuses.js",
     "issue:close": "node version/scripts/close-completed-issues.js",
     "issue:setup-labels": "node version/scripts/setup-labels.js",
-    "issue:sync-project": "node version/scripts/sync-project-issues.js"
+    "issue:sync-project": "node version/scripts/sync-project-issues.js",
+    "task:move-completed": "node version/scripts/move-completed-tasks.js"
   },
   "keywords": [
     "hyperkit",
