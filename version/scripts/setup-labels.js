@@ -4,10 +4,28 @@
  * Usage: node setup-labels.js [--dry-run]
  */
 
+// Load environment variables from .env file
+require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
+
 const { execSync } = require('child_process');
+const path = require('path');
+
+// Validate required environment variables
+if (!process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
+  console.error('❌ Error: GITHUB_TOKEN or GH_TOKEN environment variable is required');
+  console.error('   Set it in your .env file or export it in your shell');
+  console.error('   Get token from: https://github.com/settings/tokens');
+  console.error('   Required scopes: repo, read:org, read:project, write:project');
+  process.exit(1);
+}
+
+// Set token for gh CLI if not already set
+if (process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
+  process.env.GH_TOKEN = process.env.GITHUB_TOKEN;
+}
 
 const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === 'true';
-const REPO_NAME = 'HyperionKit/agile-task';
+const REPO_NAME = process.env.GITHUB_REPO_NAME || 'HyperionKit/agile-task';
 
 const LABELS = [
   // Priority labels
