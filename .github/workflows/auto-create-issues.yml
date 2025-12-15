@@ -1,0 +1,128 @@
+name: Auto-Create Issues from Tasks
+
+on:
+  push:
+    paths:
+      - 'src/documentation/agile.role/**/*.md'
+      - 'src/documentation/deliver/**/*.md'
+      - 'src/documentation/overdue/**/*.md'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - create-all
+          - sync-all
+          - update-statuses
+          - close-completed
+        default: 'sync-all'
+
+jobs:
+  sync-issues:
+    name: Sync Task Issues
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install GitHub CLI
+        run: |
+          type -p curl >/dev/null || (apt update && apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          apt update
+          apt install gh -y
+      
+      - name: Authenticate GitHub CLI
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+      
+      - name: Get changed task files
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "action=${{ github.event.inputs.action }}" >> $GITHUB_OUTPUT
+            echo "files=" >> $GITHUB_OUTPUT
+          else
+            # Get changed files in this push
+            if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+              git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E 'src/documentation/(agile\.role|deliver|overdue)/.*/TASK-.*\.md$' > changed_tasks.txt || true
+            else
+              # First commit or no before commit
+              git diff --name-only HEAD~1 HEAD | grep -E 'src/documentation/(agile\.role|deliver|overdue)/.*/TASK-.*\.md$' > changed_tasks.txt || true
+            fi
+            echo "files=$(cat changed_tasks.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
+            echo "action=auto" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Setup labels
+        run: |
+          node version/scripts/setup-labels.js || echo "Label setup completed (some may already exist)"
+      
+      - name: Process tasks based on action
+        run: |
+          action="${{ steps.changed-files.outputs.action }}"
+          
+          case "$action" in
+            create-all)
+              echo "Creating issues for all tasks..."
+              node version/scripts/sync-task-issues.js
+              ;;
+            sync-all)
+              echo "Syncing all task issues..."
+              node version/scripts/sync-task-issues.js
+              ;;
+            update-statuses)
+              echo "Updating issue statuses..."
+              node version/scripts/update-issue-statuses.js
+              ;;
+            close-completed)
+              echo "Closing completed issues..."
+              node version/scripts/close-completed-issues.js
+              ;;
+            auto)
+              echo "Auto-processing changed files..."
+              files="${{ steps.changed-files.outputs.files }}"
+              if [ -z "$files" ]; then
+                echo "No task files changed"
+                exit 0
+              fi
+              
+              for file in $files; do
+                if [ -f "$file" ]; then
+                  echo "Processing: $file"
+                  node version/scripts/create-task-issue.js "$file" || echo "Failed to process $file"
+                  sleep 2
+                fi
+              done
+              ;;
+          esac
+      
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "## Issue Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Action: ${{ steps.changed-files.outputs.action }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f ".github/logs/issue-sync.log" ]; then
+            echo "### Recent Log Entries" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -20 .github/logs/issue-sync.log >> $GITHUB_STEP_SUMMARY || echo "No log entries" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
