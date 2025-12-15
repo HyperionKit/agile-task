@@ -296,6 +296,9 @@ async function syncProjectIssues() {
     if (iterationField) {
       const iterCount = iterationField.configuration?.iterations?.length || 0;
       console.log(`✅ Iteration field found: ${iterationField.name}, iterations available: ${iterCount}`);
+      if (iterCount > 0) {
+        console.log(`   Available iterations: ${iterationField.configuration.iterations.map(i => i.title || i.id).join(', ')}`);
+      }
     } else {
       console.log(`⚠️  Iteration field not found. Available field names: ${fields.map(f => f.name).filter(Boolean).join(', ')}`);
     }
@@ -517,20 +520,21 @@ async function syncProjectIssues() {
       if (iterationField && iterationField.configuration && iterationField.configuration.iterations) {
         const month = taskMonthMap.get(issue.number);
         const taskDueDate = taskDueDateMap.get(issue.number);
+        const iterations = iterationField.configuration.iterations;
         
         if (month || taskDueDate) {
-          // Try to find matching iteration based on due date
           let matchedIteration = null;
           
-          if (taskDueDate) {
+          // Strategy 1: Match by due date range (most accurate)
+          if (taskDueDate && !matchedIteration) {
             try {
               const dueDate = new Date(taskDueDate);
-              const iterations = iterationField.configuration.iterations;
+              dueDate.setHours(0, 0, 0, 0);
               
-              // Find iteration that contains the due date
               for (const iteration of iterations) {
                 if (iteration.startDate) {
                   const iterStart = new Date(iteration.startDate);
+                  iterStart.setHours(0, 0, 0, 0);
                   const iterEnd = new Date(iterStart);
                   iterEnd.setDate(iterEnd.getDate() + (iteration.duration || 14));
                   
@@ -545,27 +549,115 @@ async function syncProjectIssues() {
             }
           }
           
-          // If no match by date, try to match by month name
+          // Strategy 2: Match by month number from task file
           if (!matchedIteration && month) {
+            // Extract month number from formats: "Month 3", "3 (December 2025)", or just "3"
+            let monthNum = null;
             const monthMatch = month.match(/Month (\d+)/);
             if (monthMatch) {
-              // Try to find iteration with matching month number in title
-              const iterations = iterationField.configuration.iterations;
+              monthNum = monthMatch[1];
+            } else {
+              // Try format: "3 (December 2025)" or just "3"
+              const altMatch = month.match(/^(\d+)/);
+              if (altMatch) {
+                monthNum = altMatch[1];
+              }
+            }
+            
+            if (monthNum) {
+              // Try multiple matching strategies for month number:
               for (const iteration of iterations) {
-                if (iteration.title && iteration.title.includes(monthMatch[1])) {
-                  matchedIteration = iteration;
-                  break;
+                // Strategy 2a: Match month number in iteration title
+                if (iteration.title) {
+                  const titleLower = iteration.title.toLowerCase();
+                  if (
+                    titleLower.includes(`month ${monthNum}`) ||
+                    titleLower.includes(`sprint ${monthNum}`) ||
+                    titleLower.includes(`iteration ${monthNum}`) ||
+                    (titleLower.includes(monthNum) && !isNaN(parseInt(monthNum)))
+                  ) {
+                    matchedIteration = iteration;
+                    break;
+                  }
+                }
+                
+                // Strategy 2b: Match by iteration start date month
+                if (!matchedIteration && iteration.startDate) {
+                  try {
+                    const iterStart = new Date(iteration.startDate);
+                    const iterMonthNum = iterStart.getMonth() + 1; // 1-12
+                    if (iterMonthNum.toString() === monthNum) {
+                      matchedIteration = iteration;
+                      break;
+                    }
+                  } catch (e) {
+                    // Skip invalid dates
+                  }
+                }
+                
+                // Strategy 2c: Match by due date month if available
+                if (!matchedIteration && taskDueDate) {
+                  try {
+                    const dueDate = new Date(taskDueDate);
+                    const dueMonthNum = dueDate.getMonth() + 1; // 1-12
+                    if (dueMonthNum.toString() === monthNum && iteration.startDate) {
+                      const iterStart = new Date(iteration.startDate);
+                      const iterMonthNum = iterStart.getMonth() + 1;
+                      // Match if both are in same month
+                      if (iterMonthNum === dueMonthNum) {
+                        matchedIteration = iteration;
+                        break;
+                      }
+                    }
+                  } catch (e) {
+                    // Skip invalid dates
+                  }
                 }
               }
             }
           }
           
+          // Strategy 3: Fallback - match by due date month to iteration start month
+          if (!matchedIteration && taskDueDate) {
+            try {
+              const dueDate = new Date(taskDueDate);
+              const dueMonth = dueDate.getMonth() + 1; // 1-12
+              
+              for (const iteration of iterations) {
+                if (iteration.startDate) {
+                  const iterStart = new Date(iteration.startDate);
+                  const iterMonth = iterStart.getMonth() + 1;
+                  
+                  // Match if due date month matches iteration start month
+                  if (iterMonth === dueMonth) {
+                    matchedIteration = iteration;
+                    break;
+                  }
+                }
+              }
+            } catch (e) {
+              // Skip invalid dates
+            }
+          }
+          
+          // Update iteration field if match found
           if (matchedIteration && matchedIteration.id) {
-            await updateProjectField(projectId, itemId, iterationField.id, {
+            const success = await updateProjectField(projectId, itemId, iterationField.id, {
               type: 'iteration',
               iterationId: matchedIteration.id
             });
-            issueUpdated = true;
+            if (success) {
+              issueUpdated = true;
+              // Log first 10 matches for debugging
+              if (processed <= 10) {
+                console.log(`  ✅ Issue #${issue.number}: Iteration="${matchedIteration.title || matchedIteration.id}" (month: ${month || 'N/A'}, due: ${taskDueDate || 'N/A'})`);
+              }
+            }
+          } else {
+            // Debug: Log why iteration wasn't matched (first 10 only)
+            if (processed <= 10 && (month || taskDueDate)) {
+              console.log(`  ⚠️  Issue #${issue.number}: No iteration match (month: ${month || 'N/A'}, dueDate: ${taskDueDate || 'N/A'}, available: ${iterations.length} iterations)`);
+            }
           }
         }
       }
