@@ -15,7 +15,7 @@ if (!process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
   console.error('❌ Error: GITHUB_TOKEN or GH_TOKEN environment variable is required');
   console.error('   Set it in your .env file or export it in your shell');
   console.error('   Get token from: https://github.com/settings/tokens');
-  console.error('   Required scopes: repo, read:org, read:project, write:project');
+  console.error('   Required scopes: repo, read:org, project');
   process.exit(1);
 }
 
