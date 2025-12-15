@@ -9,6 +9,35 @@ The system automatically creates, updates, and closes GitHub issues based on PRD
 - `src/documentation/deliver/` - Completed tasks
 - `src/documentation/overdue/` - Overdue tasks
 
+## GitHub Projects Integration
+
+Issues are automatically added to GitHub Projects and synced across views:
+- **Backlog**: Shows all issues (filtered by status)
+- **Board**: Kanban view with status columns
+- **Current iteration**: Active sprint items
+- **Roadmap**: Timeline view by month/sprint
+
+The system automatically:
+- Adds new issues to the project
+- Updates project status field when task status changes
+- Syncs status across all project views
+- Moves items between views based on status labels
+
+### Project Configuration
+
+Set environment variables to configure project:
+```bash
+export GITHUB_PROJECT_NUMBER=1  # Your project number
+export GITHUB_PROJECT_OWNER=HyperionKit  # Project owner
+```
+
+Or in GitHub Actions, add to workflow:
+```yaml
+env:
+  GITHUB_PROJECT_NUMBER: "1"
+  GITHUB_PROJECT_OWNER: "HyperionKit"
+```
+
 ## Setup
 
 ### 1. Install GitHub CLI
@@ -75,6 +104,14 @@ npm run issue:update
 
 ```bash
 npm run issue:close
+```
+
+### Sync Project Issues
+
+Sync all issues to GitHub Project (ensures all issues are in project):
+
+```bash
+npm run issue:sync-project
 ```
 
 ## Automated Workflows
