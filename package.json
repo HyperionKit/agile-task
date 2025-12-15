@@ -28,6 +28,8 @@
     "prd"
   ],
   "author": "",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "dependencies": {
+    "dotenv": "^16.6.1"
+  }
 }
-
