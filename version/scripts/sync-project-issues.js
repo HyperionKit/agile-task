@@ -9,6 +9,8 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 
 const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 // Validate required environment variables
 if (!process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
@@ -46,10 +48,65 @@ function getProjectOwnerType(owner) {
   return 'user';
 }
 
+// Find task file for an issue by searching for issue number in task files
+function findTaskFileForIssue(issueNumber) {
+  const taskDirs = [
+    'src/documentation/agile.role/aaron',
+    'src/documentation/agile.role/justine',
+    'src/documentation/agile.role/tristan',
+    'src/documentation/overdue/aaron',
+    'src/documentation/overdue/justine',
+    'src/documentation/overdue/tristan'
+  ];
+  
+  for (const dir of taskDirs) {
+    const fullPath = path.join(__dirname, '../../', dir);
+    if (!fs.existsSync(fullPath)) continue;
+    
+    const files = fs.readdirSync(fullPath);
+    for (const file of files) {
+      if (!file.startsWith('TASK-') || !file.endsWith('.md')) continue;
+      
+      const filePath = path.join(fullPath, file);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      
+      // Check if this task file references this issue number
+      if (content.includes(`#${issueNumber}`) || content.includes(`issues/${issueNumber}`)) {
+        return filePath;
+      }
+    }
+  }
+  return null;
+}
+
+// Parse task file to get status, due date, estimated hours, and month from PRD (source of truth)
+function getTaskDataFromFile(taskFilePath) {
+  if (!taskFilePath || !fs.existsSync(taskFilePath)) {
+    return null;
+  }
+  
+  try {
+    const content = fs.readFileSync(taskFilePath, 'utf-8');
+    const statusMatch = content.match(/- Status:\s*(BACKLOG|IN_PROGRESS|REVIEW|DONE|BLOCKED|OVERDUE)/);
+    const dueDateMatch = content.match(/- Due Date:\s*(\d{4}-\d{2}-\d{2})/);
+    const estimatedHoursMatch = content.match(/- Estimated Hours:\s*(\d+)/);
+    const monthMatch = content.match(/- Month:\s*(.+)/);
+    
+    return {
+      status: statusMatch ? statusMatch[1] : null,
+      dueDate: dueDateMatch ? dueDateMatch[1] : null,
+      estimatedHours: estimatedHoursMatch ? parseInt(estimatedHoursMatch[1]) : null,
+      month: monthMatch ? monthMatch[1].trim() : null
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
 // Get project ID and field IDs
 async function getProjectFields(projectId) {
   // Get all field types: single-select, iteration, number, date, text
-  const fieldsQuery = `query { node(id: "${projectId}") { ... on ProjectV2 { fields(first: 30) { nodes { ... on ProjectV2Field { id name dataType } ... on ProjectV2SingleSelectField { id name dataType options { id name } } ... on ProjectV2IterationField { id name } } } } } } }`;
+  const fieldsQuery = `query { node(id: "${projectId}") { ... on ProjectV2 { fields(first: 30) { nodes { ... on ProjectV2Field { id name dataType } ... on ProjectV2SingleSelectField { id name dataType options { id name } } ... on ProjectV2IterationField { id name configuration { iterations { id title startDate duration } } } } } } } } }`;
   
   try {
     const output = execSync(
@@ -73,6 +130,8 @@ async function updateProjectField(projectId, itemId, fieldId, value) {
   
   if (value.type === 'singleSelect') {
     valueInput = `{ singleSelectOptionId: "${value.optionId}" }`;
+  } else if (value.type === 'iteration') {
+    valueInput = `{ iterationId: "${value.iterationId}" }`;
   } else if (value.type === 'date') {
     valueInput = `{ date: "${value.date}" }`;
   } else if (value.type === 'number') {
@@ -108,6 +167,27 @@ async function syncProjectIssues() {
     const issues = JSON.parse(issuesOutput);
     
     console.log(`Found ${issues.length} issues (open and closed)`);
+    
+    // Map issue numbers to task file data (source of truth)
+    console.log('Reading task files for status (source of truth)...');
+    const taskStatusMap = new Map();
+    const taskDueDateMap = new Map();
+    const taskEstimatedHoursMap = new Map();
+    const taskMonthMap = new Map();
+    
+    for (const issue of issues) {
+      const taskFilePath = findTaskFileForIssue(issue.number);
+      if (taskFilePath) {
+        const taskData = getTaskDataFromFile(taskFilePath);
+        if (taskData) {
+          if (taskData.status) taskStatusMap.set(issue.number, taskData.status);
+          if (taskData.dueDate) taskDueDateMap.set(issue.number, taskData.dueDate);
+          if (taskData.estimatedHours) taskEstimatedHoursMap.set(issue.number, taskData.estimatedHours);
+          if (taskData.month) taskMonthMap.set(issue.number, taskData.month);
+        }
+      }
+    }
+    console.log(`✅ Found ${taskStatusMap.size} issues with task file status (source of truth)`);
     
     // Determine if owner is user or organization
     const ownerType = getProjectOwnerType(PROJECT_OWNER);
@@ -172,7 +252,10 @@ async function syncProjectIssues() {
         if (type === 'singleSelect') return f.options;
         if (type === 'date') return f.dataType === 'DATE';
         if (type === 'number') return f.dataType === 'NUMBER';
-        if (type === 'iteration') return f.__typename === 'ProjectV2IterationField';
+        if (type === 'iteration') {
+          // Check if it's an iteration field by checking for configuration
+          return f.__typename === 'ProjectV2IterationField' || (f.configuration && f.configuration.iterations);
+        }
         return true;
       });
     };
@@ -181,7 +264,42 @@ async function syncProjectIssues() {
     const priorityField = findField('Priority', 'singleSelect');
     const sizeField = findField('Size', 'singleSelect');
     const estimateField = findField('Estimate', 'number');
-    const iterationField = findField('Iteration', 'iteration');
+    
+    // Iteration field detection - check by name and configuration
+    // Iteration fields may not have __typename set in some cases
+    let iterationField = null;
+    
+    // First, try exact name match
+    for (const field of fields) {
+      if (field.name && field.name.toLowerCase() === 'iteration') {
+        // Check if it has configuration (iteration field) or is explicitly ProjectV2IterationField
+        if (field.configuration || field.__typename === 'ProjectV2IterationField') {
+          iterationField = field;
+          break;
+        }
+      }
+    }
+    
+    // If not found, try alternative names (Sprint, etc.)
+    if (!iterationField) {
+      for (const field of fields) {
+        if (field.name && (field.name.toLowerCase().includes('iteration') || field.name.toLowerCase().includes('sprint'))) {
+          if (field.configuration || field.__typename === 'ProjectV2IterationField') {
+            iterationField = field;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Debug: Log iteration field details if found
+    if (iterationField) {
+      const iterCount = iterationField.configuration?.iterations?.length || 0;
+      console.log(`✅ Iteration field found: ${iterationField.name}, iterations available: ${iterCount}`);
+    } else {
+      console.log(`⚠️  Iteration field not found. Available field names: ${fields.map(f => f.name).filter(Boolean).join(', ')}`);
+    }
+    
     const startDateField = findField('Start date', 'date') || findField('Start Date', 'date');
     const targetDateField = findField('Target date', 'date') || findField('Target Date', 'date');
     
@@ -191,8 +309,19 @@ async function syncProjectIssues() {
       console.warn('⚠️  Status field not found in project. Please ensure a "Status" field exists.');
     }
     
-    // Map status labels to option IDs
-    const statusMap = {
+    // Map task status (from PRD files) to project status values
+    // This is the source of truth - task files override issue labels
+    const taskStatusToProjectStatus = {
+      'BACKLOG': 'Todo',
+      'IN_PROGRESS': 'In Progress',
+      'REVIEW': 'In Review',
+      'DONE': 'Done',
+      'BLOCKED': 'Blocked',
+      'OVERDUE': 'Critical'  // Overdue tasks go to Critical column
+    };
+    
+    // Map status labels (fallback if no task file found)
+    const labelStatusMap = {
       'status:backlog': 'Todo',
       'status:in-progress': 'In Progress',
       'status:review': 'In Review',
@@ -251,21 +380,106 @@ async function syncProjectIssues() {
       processed++;
       let issueUpdated = false;
       
-      // Update Status field
+      // Update Status field (priority: task file status > issue label)
+      // Task files are the source of truth for project status
       if (statusField && statusField.options) {
-        const statusLabel = issue.labels.find(l => l.name.startsWith('status:'));
-        if (statusLabel) {
-          const statusValue = statusMap[statusLabel.name] || 'Todo';
-          const option = statusField.options.find(o => o.name === statusValue);
-          if (option) {
-            const success = await updateProjectField(projectId, itemId, statusField.id, {
-              type: 'singleSelect',
-              optionId: option.id
-            });
-            if (success) {
-              issueUpdated = true;
+        let projectStatus = 'Todo';
+        
+        // First, try to get status from task file (source of truth)
+        const taskStatus = taskStatusMap.get(issue.number);
+        if (taskStatus && taskStatusToProjectStatus[taskStatus]) {
+          projectStatus = taskStatusToProjectStatus[taskStatus];
+        } else {
+          // Check if task should be "In Progress" based on start date
+          let startDate = null;
+          const taskDueDate = taskDueDateMap.get(issue.number);
+          if (taskDueDate) {
+            try {
+              const dueDate = new Date(taskDueDate);
+              const start = new Date(dueDate);
+              start.setDate(start.getDate() - 7);
+              startDate = start;
+            } catch (e) {
+              // Invalid date, skip
             }
           }
+          
+          // Also check issue body for start date
+          if (!startDate && issue.body) {
+            const startDateMatch = issue.body.match(/\*\*Start Date\*\*: (\d{4}-\d{2}-\d{2})/);
+            if (startDateMatch) {
+              try {
+                startDate = new Date(startDateMatch[1]);
+              } catch (e) {
+                // Invalid date, skip
+              }
+            }
+          }
+          
+          // If start date has passed and task is not done, mark as "In Progress"
+          if (startDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            startDate.setHours(0, 0, 0, 0);
+            
+            if (startDate <= today) {
+              // Check if task is overdue
+              if (taskDueDate) {
+                try {
+                  const dueDate = new Date(taskDueDate);
+                  dueDate.setHours(0, 0, 0, 0);
+                  if (dueDate < today) {
+                    projectStatus = 'Critical';
+                  } else {
+                    projectStatus = 'In Progress';
+                  }
+                } catch (e) {
+                  projectStatus = 'In Progress';
+                }
+              } else {
+                projectStatus = 'In Progress';
+              }
+            }
+          } else {
+            // Check if task is overdue based on due date
+            if (taskDueDate) {
+              try {
+                const dueDate = new Date(taskDueDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                dueDate.setHours(0, 0, 0, 0);
+                
+                // If due date is in the past, mark as Critical (overdue)
+                if (dueDate < today) {
+                  projectStatus = 'Critical';
+                }
+              } catch (e) {
+                // Invalid date, skip overdue check
+              }
+            }
+          }
+          
+          // Fallback to issue label if no task file found and not determined yet
+          if (projectStatus === 'Todo') {
+            const statusLabel = issue.labels.find(l => l.name.startsWith('status:'));
+            if (statusLabel) {
+              projectStatus = labelStatusMap[statusLabel.name] || 'Todo';
+            }
+          }
+        }
+        
+        const option = statusField.options.find(o => o.name === projectStatus);
+        if (option) {
+          const success = await updateProjectField(projectId, itemId, statusField.id, {
+            type: 'singleSelect',
+            optionId: option.id
+          });
+          if (success) {
+            issueUpdated = true;
+          }
+        } else if (projectStatus === 'Critical') {
+          // Log warning if Critical option not found
+          console.warn(`⚠️  Issue #${issue.number}: "Critical" status option not found in project. Please ensure "Critical" column exists.`);
         }
       }
       
@@ -285,25 +499,122 @@ async function syncProjectIssues() {
         }
       }
       
-      // Extract and update dates from issue body
-      if (issue.body) {
-        const startDateMatch = issue.body.match(/\*\*Start Date\*\*: (\d{4}-\d{2}-\d{2})/);
-        if (startDateMatch && startDateField) {
-          await updateProjectField(projectId, itemId, startDateField.id, {
-            type: 'date',
-            date: startDateMatch[1]
+      // Update Estimate field (from task file Estimated Hours)
+      if (estimateField) {
+        const estimatedHours = taskEstimatedHoursMap.get(issue.number);
+        if (estimatedHours && estimatedHours > 0) {
+          await updateProjectField(projectId, itemId, estimateField.id, {
+            type: 'number',
+            number: estimatedHours
           });
           issueUpdated = true;
         }
+      }
+      
+      // Update Iteration field (from task file Month)
+      // Note: Iteration fields use iterationId, not optionId
+      // We need to match based on date ranges or iteration names
+      if (iterationField && iterationField.configuration && iterationField.configuration.iterations) {
+        const month = taskMonthMap.get(issue.number);
+        const taskDueDate = taskDueDateMap.get(issue.number);
+        
+        if (month || taskDueDate) {
+          // Try to find matching iteration based on due date
+          let matchedIteration = null;
+          
+          if (taskDueDate) {
+            try {
+              const dueDate = new Date(taskDueDate);
+              const iterations = iterationField.configuration.iterations;
+              
+              // Find iteration that contains the due date
+              for (const iteration of iterations) {
+                if (iteration.startDate) {
+                  const iterStart = new Date(iteration.startDate);
+                  const iterEnd = new Date(iterStart);
+                  iterEnd.setDate(iterEnd.getDate() + (iteration.duration || 14));
+                  
+                  if (dueDate >= iterStart && dueDate <= iterEnd) {
+                    matchedIteration = iteration;
+                    break;
+                  }
+                }
+              }
+            } catch (e) {
+              // Invalid date, skip
+            }
+          }
+          
+          // If no match by date, try to match by month name
+          if (!matchedIteration && month) {
+            const monthMatch = month.match(/Month (\d+)/);
+            if (monthMatch) {
+              // Try to find iteration with matching month number in title
+              const iterations = iterationField.configuration.iterations;
+              for (const iteration of iterations) {
+                if (iteration.title && iteration.title.includes(monthMatch[1])) {
+                  matchedIteration = iteration;
+                  break;
+                }
+              }
+            }
+          }
+          
+          if (matchedIteration && matchedIteration.id) {
+            await updateProjectField(projectId, itemId, iterationField.id, {
+              type: 'iteration',
+              iterationId: matchedIteration.id
+            });
+            issueUpdated = true;
+          }
+        }
+      }
+      
+      // Extract and update dates (priority: task file > issue body)
+      // Roadmap view uses Start Date and Target Date
+      let startDate = null;
+      let targetDate = null;
+      
+      // First, try to get dates from task file (source of truth)
+      const taskDueDate = taskDueDateMap.get(issue.number);
+      if (taskDueDate) {
+        // Calculate start date (7 days before due date)
+        try {
+          const dueDate = new Date(taskDueDate);
+          const start = new Date(dueDate);
+          start.setDate(start.getDate() - 7);
+          startDate = start.toISOString().split('T')[0];
+          targetDate = taskDueDate;
+        } catch (e) {
+          // Invalid date, skip
+        }
+      }
+      
+      // Fallback to issue body if no task file date found
+      if (!targetDate && issue.body) {
+        const startDateMatch = issue.body.match(/\*\*Start Date\*\*: (\d{4}-\d{2}-\d{2})/);
+        if (startDateMatch) startDate = startDateMatch[1];
         
         const targetDateMatch = issue.body.match(/\*\*Target Date\*\*: (\d{4}-\d{2}-\d{2})/);
-        if (targetDateMatch && targetDateField) {
-          await updateProjectField(projectId, itemId, targetDateField.id, {
-            type: 'date',
-            date: targetDateMatch[1]
-          });
-          issueUpdated = true;
-        }
+        if (targetDateMatch) targetDate = targetDateMatch[1];
+      }
+      
+      // Update Start Date field (for Roadmap view)
+      if (startDate && startDateField) {
+        await updateProjectField(projectId, itemId, startDateField.id, {
+          type: 'date',
+          date: startDate
+        });
+        issueUpdated = true;
+      }
+      
+      // Update Target Date field (for Roadmap view)
+      if (targetDate && targetDateField) {
+        await updateProjectField(projectId, itemId, targetDateField.id, {
+          type: 'date',
+          date: targetDate
+        });
+        issueUpdated = true;
       }
       
       if (issueUpdated) {
@@ -321,8 +632,44 @@ async function syncProjectIssues() {
     console.log(`   - ${added} issues added to project`);
     console.log(`   - ${updated} issues updated with project fields`);
     console.log(`   - ${processed} issues processed`);
-    console.log('\n📊 Project views (Backlog/Board/Current iteration/Roadmap) are now synced');
-    console.log('   Fields updated: Status, Priority, Start Date, Target Date');
+    // Count how many issues were marked as Critical
+    let criticalCount = 0;
+    for (const issue of issues) {
+      const taskStatus = taskStatusMap.get(issue.number);
+      if (taskStatus === 'OVERDUE') {
+        criticalCount++;
+      } else {
+        const taskDueDate = taskDueDateMap.get(issue.number);
+        if (taskDueDate) {
+          try {
+            const dueDate = new Date(taskDueDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            dueDate.setHours(0, 0, 0, 0);
+            if (dueDate < today) {
+              criticalCount++;
+            }
+          } catch (e) {
+            // Skip invalid dates
+          }
+        }
+      }
+    }
+    
+    console.log(`   - ${taskStatusMap.size} issues synced from task files (source of truth)`);
+    console.log(`   - ${criticalCount} issues marked as Critical (overdue/rush)`);
+    console.log('\n📊 Project views synced:');
+    console.log('   - Backlog: Filters by Status field (Todo)');
+    console.log('   - Board: Columns based on Status (Todo/In Progress/Done/Critical)');
+    console.log('   - Critical Column: Overdue tasks and rush items');
+    console.log('   - Current iteration: Filters by Iteration + Status');
+    console.log('   - Roadmap: Timeline based on Start/Target dates + Status');
+    console.log('\n   Fields updated:');
+    console.log('   - Status: From task files (BACKLOG→Todo, IN_PROGRESS→In Progress, DONE→Done, OVERDUE→Critical)');
+    console.log('   - Overdue Detection: Tasks past due date automatically marked as Critical');
+    console.log('   - Priority: From issue labels');
+    console.log('   - Start Date: From task files or issue body (for Roadmap)');
+    console.log('   - Target Date: From task files or issue body (for Roadmap)');
     
   } catch (error) {
     console.error(`❌ Failed to sync project: ${error.message}`);
