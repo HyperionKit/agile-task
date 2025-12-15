@@ -83,35 +83,52 @@ PRD/
 
 ```
 1. New Task Created
-   └── agile.role/[assignee]/TASK-S[X]-[XXX]-[name].md
+   └── agile.role/[assignee]/TASK-M[X]-[XXX]-[name].md
 
 2. Task In Progress
    └── Status: IN_PROGRESS
 
 3. Task Complete
-   └── Move to: deliver/sprint-X/
+   └── Status: DONE (Month 1-2 moved to deliver/)
 
 4. Task Overdue (P0)
-   └── Move to: overdue/[assignee]/
+   └── Move to: overdue/[assignee]/TASK-M[X]-[XXX]-[name].md
 ```
 
 ### Task Naming Convention
 
 ```
-TASK-S[Sprint]-[Number]-[short-description].md
+TASK-M[Month]-[Number]-[short-description].md
 
 Examples:
-- TASK-S1-001-setup-github-monorepo.md
-- TASK-S2-015-claude-integration.md
+- TASK-M1-001-setup-github-monorepo.md (Month 1 - October 2025)
+- TASK-M3-040-hyperagent-template-integration.md (Month 3 - December 2025)
+- TASK-M4-056-deployment-pipeline-stability.md (Month 4 - January 2026)
 ```
 
-### Current Sprint Status
+**Month Reference**:
+- M1 = October 2025
+- M2 = November 2025
+- M3 = December 2025
+- M4 = January 2026
+- M5 = February 2026
+- M6 = March 2026
 
-| Assignee | Active | Overdue (P0) |
-|----------|--------|--------------|
-| Aaron | 5 | 2 |
-| Justine | 4 | 1 |
-| Tristan | 3 | 0 |
+### Current Month Status (December 2025 - Month 3)
+
+| Assignee | Month 3 Tasks | Overdue (P0) | Status |
+|----------|---------------|--------------|--------|
+| Aaron (SDK/AA Backend) | 19 | 2 | IN PROGRESS |
+| Justine (HyperAgent/Product) | 14 | 0 | IN PROGRESS |
+| Tristan (Frontend/UI/UX) | 5 | 1 | IN PROGRESS |
+
+**Timeline**:
+- Month 1 (October 2025): ✅ DELIVERED
+- Month 2 (November 2025): ✅ DELIVERED
+- Month 3 (December 2025): 🔄 IN PROGRESS
+- Month 4 (January 2026): 📋 UPCOMING
+- Month 5 (February 2026): 📋 UPCOMING
+- Month 6 (March 2026): 📋 UPCOMING
 
 ### Task Guides
 
