@@ -16,7 +16,7 @@ if (!process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
   console.error('❌ Error: GITHUB_TOKEN or GH_TOKEN environment variable is required');
   console.error('   Set it in your .env file or export it in your shell');
   console.error('   Get token from: https://github.com/settings/tokens');
-  console.error('   Required scopes: repo, read:org, read:project, write:project');
+  console.error('   Required scopes: repo, read:org, project');
   process.exit(1);
 }
 
@@ -28,6 +28,24 @@ if (process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
 const REPO_NAME = process.env.GITHUB_REPO_NAME || 'HyperionKit/agile-task';
 const PROJECT_OWNER = process.env.GITHUB_PROJECT_OWNER || 'HyperionKit';
 const PROJECT_NUMBER = process.env.GITHUB_PROJECT_NUMBER || '1';
+
+// Helper to determine if owner is user or organization
+function getProjectOwnerType(owner) {
+  try {
+    const query = `query { organization(login: "${owner}") { id } }`;
+    const output = execSync(
+      `gh api graphql -f query="${query.replace(/"/g, '\\"')}"`,
+      { encoding: 'utf-8', stdio: 'pipe' }
+    );
+    const data = JSON.parse(output);
+    if (data?.data?.organization?.id) {
+      return 'organization';
+    }
+  } catch (error) {
+    // If organization query fails, assume it's a user
+  }
+  return 'user';
+}
 
 async function syncProjectIssues() {
   try {
@@ -42,8 +60,12 @@ async function syncProjectIssues() {
     
     console.log(`Found ${issues.length} open issues`);
     
-    // Get project items - use single line query
-    const projectQuery = `query { organization(login: "${PROJECT_OWNER}") { projectV2(number: ${PROJECT_NUMBER}) { id items(first: 200) { nodes { id content { ... on Issue { number } } } } } } }`;
+    // Determine if owner is user or organization
+    const ownerType = getProjectOwnerType(PROJECT_OWNER);
+    const queryField = ownerType === 'organization' ? 'organization' : 'user';
+    
+    // Get project items (GraphQL limit is 100, use pagination if needed)
+    const projectQuery = `query { ${queryField}(login: "${PROJECT_OWNER}") { projectV2(number: ${PROJECT_NUMBER}) { id items(first: 100) { nodes { id content { ... on Issue { number } } } pageInfo { hasNextPage endCursor } } } } }`;
     
     try {
       const projectOutput = execSync(
@@ -51,8 +73,26 @@ async function syncProjectIssues() {
         { encoding: 'utf-8', stdio: 'pipe' }
       );
       const projectData = JSON.parse(projectOutput);
-      const projectId = projectData?.data?.organization?.projectV2?.id;
-      const existingItems = projectData?.data?.organization?.projectV2?.items?.nodes || [];
+      const projectId = projectData?.data?.[queryField]?.projectV2?.id;
+      let existingItems = projectData?.data?.[queryField]?.projectV2?.items?.nodes || [];
+      let pageInfo = projectData?.data?.[queryField]?.projectV2?.items?.pageInfo;
+      
+      // Handle pagination if there are more than 100 items
+      while (pageInfo?.hasNextPage) {
+        const paginatedQuery = `query { ${queryField}(login: "${PROJECT_OWNER}") { projectV2(number: ${PROJECT_NUMBER}) { items(first: 100, after: "${pageInfo.endCursor}") { nodes { id content { ... on Issue { number } } } pageInfo { hasNextPage endCursor } } } } }`;
+        const paginatedOutput = execSync(
+          `gh api graphql -f query="${paginatedQuery.replace(/"/g, '\\"')}"`,
+          { encoding: 'utf-8', stdio: 'pipe' }
+        );
+        const paginatedData = JSON.parse(paginatedOutput);
+        const nextItems = paginatedData?.data?.[queryField]?.projectV2?.items?.nodes || [];
+        existingItems = existingItems.concat(nextItems);
+        pageInfo = paginatedData?.data?.[queryField]?.projectV2?.items?.pageInfo;
+      }
+      
+      if (!projectId) {
+        throw new Error(`Project ${PROJECT_NUMBER} not found for ${PROJECT_OWNER} (${ownerType})`);
+      }
       const existingIssueNumbers = new Set(
         existingItems
           .map(item => item.content?.number)
