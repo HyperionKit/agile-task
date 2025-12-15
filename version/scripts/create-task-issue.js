@@ -471,7 +471,7 @@ function getProjectOwnerType(owner) {
     const query = `query { organization(login: "${owner}") { id } }`;
     const output = execSync(
       `gh api graphql -f query="${query.replace(/"/g, '\\"')}"`,
-      { encoding: 'utf-8', stdio: 'pipe' }
+      { encoding: 'utf-8', stdio: 'pipe', shell: true }
     );
     const data = JSON.parse(output);
     if (data?.data?.organization?.id) {
@@ -513,17 +513,20 @@ async function addIssueToProject(issueNumber, task) {
     
     // Fallback to GraphQL API
     const projectQuery = `query { ${queryField}(login: "${PROJECT_OWNER}") { projectV2(number: ${PROJECT_NUMBER}) { id } } }`;
-    const projectCmd = `gh api graphql -f query='${projectQuery.replace(/'/g, "\\'")}'`;
-    
-    const projectOutput = execSync(projectCmd, { encoding: 'utf-8', stdio: 'pipe' });
+    const projectOutput = execSync(
+      `gh api graphql -f query="${projectQuery.replace(/"/g, '\\"')}"`,
+      { encoding: 'utf-8', stdio: 'pipe', shell: true }
+    );
     const projectData = JSON.parse(projectOutput);
     const projectId = projectData?.data?.[queryField]?.projectV2?.id;
     
     if (projectId) {
       // Add issue to project using GraphQL
       const addIssueMutation = `mutation { addProjectV2ItemById(input: { projectId: "${projectId}", contentId: "I_${issueNumber}" }) { item { id } } }`;
-      const addCmd = `gh api graphql -f query='${addIssueMutation.replace(/'/g, "\\'")}'`;
-      execSync(addCmd, { encoding: 'utf-8', stdio: 'ignore' });
+      execSync(
+        `gh api graphql -f query="${addIssueMutation.replace(/"/g, '\\"')}"`,
+        { encoding: 'utf-8', stdio: 'ignore', shell: true }
+      );
       log(`✅ Added issue #${issueNumber} to project ${PROJECT_NUMBER} via GraphQL`, 'INFO');
       
       // Update project field values
@@ -538,8 +541,59 @@ async function addIssueToProject(issueNumber, task) {
 }
 
 // Update all project fields to sync with views (Status, Priority, Iteration, Dates)
+// Uses GraphQL API to update project fields
 async function updateProjectStatus(issueNumber, task) {
   try {
+    // Get project ID
+    const ownerType = getProjectOwnerType(PROJECT_OWNER);
+    const queryField = ownerType === 'organization' ? 'organization' : 'user';
+    
+    const projectQuery = `query { ${queryField}(login: "${PROJECT_OWNER}") { projectV2(number: ${PROJECT_NUMBER}) { id } } }`;
+    
+    const projectOutput = execSync(
+      `gh api graphql -f query="${projectQuery.replace(/"/g, '\\"')}"`,
+      { encoding: 'utf-8', stdio: 'pipe', shell: true }
+    );
+    const projectData = JSON.parse(projectOutput);
+    const projectId = projectData?.data?.[queryField]?.projectV2?.id;
+    
+    if (!projectId) {
+      log(`⚠️  Project ${PROJECT_NUMBER} not found`, 'WARN');
+      return;
+    }
+    
+    // Get project item ID for this issue
+    const itemsQuery = `query { ${queryField}(login: "${PROJECT_OWNER}") { projectV2(number: ${PROJECT_NUMBER}) { items(first: 100, filter: { content: { issue: { number: ${issueNumber} } } }) { nodes { id } } } } }`;
+    
+    const itemsOutput = execSync(
+      `gh api graphql -f query="${itemsQuery.replace(/"/g, '\\"')}"`,
+      { encoding: 'utf-8', stdio: 'pipe', shell: true }
+    );
+    const itemsData = JSON.parse(itemsOutput);
+    const itemId = itemsData?.data?.[queryField]?.projectV2?.items?.nodes?.[0]?.id;
+    
+    if (!itemId) {
+      log(`⚠️  Issue #${issueNumber} not found in project`, 'WARN');
+      return;
+    }
+    
+    // Get project fields
+    // Note: Date fields are ProjectV2Field with dataType === 'DATE', not ProjectV2DateField
+    const fieldsQuery = `query { node(id: "${projectId}") { ... on ProjectV2 { fields(first: 20) { nodes { ... on ProjectV2Field { id name dataType } ... on ProjectV2SingleSelectField { id name options { id name } } } } } } } }`;
+    
+    const fieldsOutput = execSync(
+      `gh api graphql -f query="${fieldsQuery.replace(/"/g, '\\"')}"`,
+      { encoding: 'utf-8', stdio: 'pipe', shell: true }
+    );
+    const fieldsData = JSON.parse(fieldsOutput);
+    const allFields = fieldsData?.data?.node?.fields?.nodes || [];
+    
+    // Find fields by name and type
+    const statusField = allFields.find(f => (f.name === 'Status' || f.name === 'status') && f.options);
+    const priorityField = allFields.find(f => (f.name === 'Priority' || f.name === 'priority') && f.options);
+    const startDateField = allFields.find(f => (f.name === 'Start date' || f.name === 'Start Date') && f.dataType === 'DATE');
+    const targetDateField = allFields.find(f => (f.name === 'Target date' || f.name === 'Target Date') && f.dataType === 'DATE');
+    
     const status = task.metadata.status || 'BACKLOG';
     const priority = task.metadata.priority || 'P2';
     
@@ -550,7 +604,7 @@ async function updateProjectStatus(issueNumber, task) {
       'REVIEW': 'In Review',
       'DONE': 'Done',
       'BLOCKED': 'Blocked',
-      'OVERDUE': 'Todo' // Overdue items stay in Todo but with priority label
+      'OVERDUE': 'Todo'
     };
     
     // Map priority to project priority values
@@ -564,92 +618,68 @@ async function updateProjectStatus(issueNumber, task) {
     const projectStatus = statusMap[status] || 'Todo';
     const projectPriority = priorityMap[priority] || 'Medium';
     
-    // Calculate dates
-    let startDate = null;
-    let targetDate = null;
+    // Update Status field
+    if (statusField && statusField.options) {
+      const option = statusField.options.find(o => o.name === projectStatus);
+      if (option) {
+        const mutation = `mutation { updateProjectV2ItemFieldValue(input: { projectId: "${projectId}" itemId: "${itemId}" fieldId: "${statusField.id}" value: { singleSelectOptionId: "${option.id}" } }) { projectV2Item { id } } }`;
+        
+        try {
+          execSync(
+            `gh api graphql -f query="${mutation.replace(/"/g, '\\"')}"`,
+            { stdio: 'ignore', shell: true }
+          );
+          log(`✅ Updated project status to "${projectStatus}" for issue #${issueNumber}`, 'INFO');
+        } catch (error) {
+          log(`⚠️  Could not update status: ${error.message}`, 'WARN');
+        }
+      }
+    }
     
+    // Update Priority field
+    if (priorityField && priorityField.options) {
+      const option = priorityField.options.find(o => o.name === projectPriority);
+      if (option) {
+        const mutation = `mutation { updateProjectV2ItemFieldValue(input: { projectId: "${projectId}" itemId: "${itemId}" fieldId: "${priorityField.id}" value: { singleSelectOptionId: "${option.id}" } }) { projectV2Item { id } } }`;
+        
+        try {
+          execSync(
+            `gh api graphql -f query="${mutation.replace(/"/g, '\\"')}"`,
+            { stdio: 'ignore', shell: true }
+          );
+          log(`✅ Updated project priority to "${projectPriority}" for issue #${issueNumber}`, 'INFO');
+        } catch (error) {
+          // Priority field might not exist, that's okay
+        }
+      }
+    }
+    
+    // Update dates if available
     if (task.metadata.due_date) {
       try {
         const dueDate = new Date(task.metadata.due_date);
         const start = new Date(dueDate);
         start.setDate(start.getDate() - 7);
-        startDate = start.toISOString().split('T')[0];
-        targetDate = task.metadata.due_date;
+        const startDate = start.toISOString().split('T')[0];
+        const targetDate = task.metadata.due_date;
+        
+        if (startDateField) {
+          const mutation = `mutation { updateProjectV2ItemFieldValue(input: { projectId: "${projectId}" itemId: "${itemId}" fieldId: "${startDateField.id}" value: { date: "${startDate}" } }) { projectV2Item { id } } }`;
+          execSync(
+            `gh api graphql -f query="${mutation.replace(/"/g, '\\"')}"`,
+            { stdio: 'ignore', shell: true }
+          );
+        }
+        
+        if (targetDateField) {
+          const mutation = `mutation { updateProjectV2ItemFieldValue(input: { projectId: "${projectId}" itemId: "${itemId}" fieldId: "${targetDateField.id}" value: { date: "${targetDate}" } }) { projectV2Item { id } } }`;
+          execSync(
+            `gh api graphql -f query="${mutation.replace(/"/g, '\\"')}"`,
+            { stdio: 'ignore', shell: true }
+          );
+        }
       } catch (e) {
         // Invalid date, skip
-      }
-    }
-    
-    // Calculate sprint/iteration from month
-    let iteration = null;
-    if (task.metadata.month) {
-      const monthMatch = task.metadata.month.match(/Month (\d+)/);
-      if (monthMatch) {
-        iteration = `Month ${monthMatch[1]}`;
-      }
-    }
-    
-    // Update all project fields in parallel
-    const updates = [];
-    
-    // Update Status (most important - controls Board columns)
-    try {
-      execSync(
-        `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-status "${projectStatus}"`,
-        { stdio: 'ignore' }
-      );
-      log(`✅ Updated project status to "${projectStatus}" for issue #${issueNumber}`, 'INFO');
-    } catch (error) {
-      log(`⚠️  Could not update status field: ${error.message}`, 'WARN');
-    }
-    
-    // Update Priority
-    try {
-      execSync(
-        `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-priority "${projectPriority}"`,
-        { stdio: 'ignore' }
-      );
-      log(`✅ Updated project priority to "${projectPriority}" for issue #${issueNumber}`, 'INFO');
-    } catch (error) {
-      // Priority field might not exist, that's okay
-    }
-    
-    // Update Start date
-    if (startDate) {
-      try {
-        execSync(
-          `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-start-date "${startDate}"`,
-          { stdio: 'ignore' }
-        );
-        log(`✅ Updated start date to "${startDate}" for issue #${issueNumber}`, 'INFO');
-      } catch (error) {
-        // Start date field might not exist, that's okay
-      }
-    }
-    
-    // Update Target date
-    if (targetDate) {
-      try {
-        execSync(
-          `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-target-date "${targetDate}"`,
-          { stdio: 'ignore' }
-        );
-        log(`✅ Updated target date to "${targetDate}" for issue #${issueNumber}`, 'INFO');
-      } catch (error) {
-        // Target date field might not exist, that's okay
-      }
-    }
-    
-    // Update Iteration (if field exists)
-    if (iteration) {
-      try {
-        execSync(
-          `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-iteration "${iteration}"`,
-          { stdio: 'ignore' }
-        );
-        log(`✅ Updated iteration to "${iteration}" for issue #${issueNumber}`, 'INFO');
-      } catch (error) {
-        // Iteration field might not exist, that's okay
       }
     }
     
@@ -665,8 +695,8 @@ async function updateProjectFields(projectId, issueNumber, task) {
     const fieldsQuery = `query { node(id: "${projectId}") { ... on ProjectV2 { fields(first: 20) { nodes { ... on ProjectV2Field { id name } ... on ProjectV2SingleSelectField { id name options { id name } } } } } } } }`;
     
     const fieldsOutput = execSync(
-      `gh api graphql -f query='${fieldsQuery.replace(/'/g, "\\'")}'`,
-      { encoding: 'utf-8', stdio: 'pipe' }
+      `gh api graphql -f query="${fieldsQuery.replace(/"/g, '\\"')}"`,
+      { encoding: 'utf-8', stdio: 'pipe', shell: true }
     );
     const fieldsData = JSON.parse(fieldsOutput);
     
