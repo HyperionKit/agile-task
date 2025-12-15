@@ -4,9 +4,26 @@
  * Usage: node sync-task-issues.js [--changed-only]
  */
 
+// Load environment variables from .env file
+require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
+
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+
+// Validate required environment variables
+if (!process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
+  console.error('❌ Error: GITHUB_TOKEN or GH_TOKEN environment variable is required');
+  console.error('   Set it in your .env file or export it in your shell');
+  console.error('   Get token from: https://github.com/settings/tokens');
+  console.error('   Required scopes: repo, read:org, read:project, write:project');
+  process.exit(1);
+}
+
+// Set token for gh CLI if not already set
+if (process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
+  process.env.GH_TOKEN = process.env.GITHUB_TOKEN;
+}
 
 const CHANGED_ONLY = process.argv.includes('--changed-only');
 const BATCH_SIZE = 10;
