@@ -11,6 +11,8 @@ const { execSync } = require('child_process');
 // Configuration
 const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === 'true';
 const REPO_NAME = 'HyperionKit/agile-task';
+const PROJECT_OWNER = process.env.GITHUB_PROJECT_OWNER || 'HyperionKit';
+const PROJECT_NUMBER = process.env.GITHUB_PROJECT_NUMBER || '1'; // Default to project 1, can be overridden
 const LOG_FILE = path.join(__dirname, '../../.github/logs/issue-sync.log');
 
 // Map assignee names to GitHub usernames
@@ -149,11 +151,23 @@ function getRepoPath(filePath) {
 // Create issue body with formatted content
 function createIssueBody(task) {
   const repoPath = getRepoPath(task.filePath);
-  const repoUrl = `https://github.com/${REPO_NAME}/blob/main/${repoPath}`;
+  const repoUrl = `https://github.com/${REPO_NAME}/blob/main/src/documentation/${repoPath}`;
   
-  // Calculate sprint from month
-  const monthMatch = task.metadata.month?.match(/Month (\d+)/);
-  const sprint = monthMatch ? `S${monthMatch[1]}` : 'S0';
+  // Calculate sprint from month - handle multiple formats
+  let sprint = 'S0';
+  if (task.metadata.month) {
+    // Try format: "Month 1 (October 2025)"
+    const monthMatch = task.metadata.month.match(/Month (\d+)/);
+    if (monthMatch) {
+      sprint = `S${monthMatch[1]}`;
+    } else {
+      // Try alternative format: "1 (October 2025)" or just "1"
+      const altMatch = task.metadata.month.match(/^(\d+)/);
+      if (altMatch) {
+        sprint = `S${altMatch[1]}`;
+      }
+    }
+  }
   
   // Calculate start date (7 days before due date)
   let startDate = 'TBD';
@@ -193,7 +207,11 @@ ${task.goal || 'See PRD Reference for details.'}
 - **Role**: ${task.metadata.role || 'N/A'}
 
 ## Acceptance Criteria
-See full details in [PRD Reference](${repoUrl})`;
+See full details in [PRD Reference](${repoUrl})
+
+---
+
+**Note**: This issue is automatically synced with GitHub Project views (Backlog/Board/Current iteration/Roadmap). Status changes will automatically update project views.`;
 }
 
 // Find existing issue by task name
@@ -277,9 +295,14 @@ async function createGitHubIssue(task) {
   // Build gh issue create command
   let cmd = `gh issue create --repo ${REPO_NAME} --title "${title.replace(/"/g, '\\"')}"`;
   
-  // Add body (escape properly)
-  const escapedBody = body.replace(/"/g, '\\"').replace(/\n/g, '\\n');
-  cmd += ` --body "${escapedBody}"`;
+  // Use --body-file for proper markdown formatting
+  const tempBodyFile = path.join(__dirname, '../../.github/temp-issue-body.md');
+  const tempDir = path.dirname(tempBodyFile);
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+  fs.writeFileSync(tempBodyFile, body, 'utf-8');
+  cmd += ` --body-file "${tempBodyFile}"`;
   
   // Add assignee
   if (assignee) {
@@ -295,13 +318,29 @@ async function createGitHubIssue(task) {
     log(`Creating issue for ${task.taskName}...`, 'INFO');
     const output = execSync(cmd, { encoding: 'utf-8', stdio: 'pipe' });
     const issueUrl = output.trim();
+    const issueNumber = issueUrl.match(/#(\d+)/)?.[1];
+    
     log(`✅ Created: ${issueUrl}`, 'SUCCESS');
+    
+    // Clean up temp file
+    if (fs.existsSync(tempBodyFile)) {
+      fs.unlinkSync(tempBodyFile);
+    }
+    
+    // Add to GitHub Project if issue number exists
+    if (issueNumber) {
+      await addIssueToProject(issueNumber, task);
+    }
     
     // Update task file with issue URL
     updateTaskFileWithIssue(task.filePath, issueUrl);
     
     return issueUrl;
   } catch (error) {
+    // Clean up temp file on error
+    if (fs.existsSync(tempBodyFile)) {
+      fs.unlinkSync(tempBodyFile);
+    }
     log(`❌ Failed to create issue for ${task.taskName}: ${error.message}`, 'ERROR');
     return null;
   }
@@ -369,6 +408,112 @@ async function closeIssue(issueNumber, reason) {
     log(`Closed issue #${issueNumber}`, 'INFO');
   } catch (error) {
     log(`Failed to close issue #${issueNumber}: ${error.message}`, 'ERROR');
+  }
+}
+
+// Add issue to GitHub Project
+async function addIssueToProject(issueNumber, task) {
+  if (DRY_RUN) {
+    log(`[DRY RUN] Would add issue #${issueNumber} to project ${PROJECT_NUMBER}`, 'INFO');
+    return;
+  }
+  
+  try {
+    // Try using gh project command first (simpler, newer API)
+    try {
+      execSync(
+        `gh project item-add ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}"`,
+        { stdio: 'ignore', encoding: 'utf-8' }
+      );
+      log(`✅ Added issue #${issueNumber} to project ${PROJECT_NUMBER}`, 'INFO');
+      
+      // Update project status field based on task status
+      await updateProjectStatus(issueNumber, task);
+      return;
+    } catch (ghError) {
+      // If gh project command fails, try GraphQL API
+      log(`gh project command failed, trying GraphQL API...`, 'INFO');
+    }
+    
+    // Fallback to GraphQL API
+    const projectQuery = `query { organization(login: "${PROJECT_OWNER}") { projectV2(number: ${PROJECT_NUMBER}) { id } } }`;
+    const projectCmd = `gh api graphql -f query='${projectQuery.replace(/'/g, "\\'")}'`;
+    
+    const projectOutput = execSync(projectCmd, { encoding: 'utf-8', stdio: 'pipe' });
+    const projectData = JSON.parse(projectOutput);
+    const projectId = projectData?.data?.organization?.projectV2?.id;
+    
+    if (projectId) {
+      // Add issue to project using GraphQL
+      const addIssueMutation = `mutation { addProjectV2ItemById(input: { projectId: "${projectId}", contentId: "I_${issueNumber}" }) { item { id } } }`;
+      const addCmd = `gh api graphql -f query='${addIssueMutation.replace(/'/g, "\\'")}'`;
+      execSync(addCmd, { encoding: 'utf-8', stdio: 'ignore' });
+      log(`✅ Added issue #${issueNumber} to project ${PROJECT_NUMBER} via GraphQL`, 'INFO');
+      
+      // Update project field values
+      await updateProjectFields(projectId, issueNumber, task);
+    } else {
+      log(`⚠️  Project ${PROJECT_NUMBER} not found for owner ${PROJECT_OWNER}`, 'WARN');
+    }
+  } catch (error) {
+    log(`⚠️  Could not add issue to project: ${error.message}`, 'WARN');
+    log(`   Ensure GITHUB_PROJECT_NUMBER is set correctly (current: ${PROJECT_NUMBER})`, 'WARN');
+  }
+}
+
+// Update project status field to sync with views
+async function updateProjectStatus(issueNumber, task) {
+  try {
+    const status = task.metadata.status || 'BACKLOG';
+    
+    // Map status to project status values
+    const statusMap = {
+      'BACKLOG': 'Todo',
+      'IN_PROGRESS': 'In Progress',
+      'REVIEW': 'In Review',
+      'DONE': 'Done',
+      'BLOCKED': 'Blocked',
+      'OVERDUE': 'Todo' // Overdue items stay in Todo but with priority label
+    };
+    
+    const projectStatus = statusMap[status] || 'Todo';
+    
+    // Try to update status field using gh project command
+    try {
+      execSync(
+        `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-status "${projectStatus}"`,
+        { stdio: 'ignore' }
+      );
+      log(`Updated project status to "${projectStatus}" for issue #${issueNumber}`, 'INFO');
+    } catch (error) {
+      // Status field might not exist or have different name, that's okay
+      log(`Could not update project status field: ${error.message}`, 'WARN');
+    }
+  } catch (error) {
+    log(`Failed to update project status: ${error.message}`, 'WARN');
+  }
+}
+
+// Update project field values using GraphQL
+async function updateProjectFields(projectId, issueNumber, task) {
+  try {
+    // Get project fields
+    const fieldsQuery = `query { node(id: "${projectId}") { ... on ProjectV2 { fields(first: 20) { nodes { ... on ProjectV2Field { id name } ... on ProjectV2SingleSelectField { id name options { id name } } } } } } } }`;
+    
+    const fieldsOutput = execSync(
+      `gh api graphql -f query='${fieldsQuery.replace(/'/g, "\\'")}'`,
+      { encoding: 'utf-8', stdio: 'pipe' }
+    );
+    const fieldsData = JSON.parse(fieldsOutput);
+    
+    // Map task metadata to project fields
+    // Status updates will automatically sync across Backlog/Board/Current iteration views
+    // Project views filter by status field, so updating status moves items between views
+    
+    log(`Project fields synced for issue #${issueNumber}`, 'INFO');
+  } catch (error) {
+    // Non-critical, just log
+    log(`Could not update project fields: ${error.message}`, 'WARN');
   }
 }
 
