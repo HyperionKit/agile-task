@@ -64,7 +64,7 @@ cp .env.example .env
 
 **Important**: The `GITHUB_TOKEN` is now **required**. Get it from:
 - https://github.com/settings/tokens
-- Required scopes: `repo`, `read:org`, `read:project`, `write:project`
+- Required scopes: `repo`, `read:org`, `project` (classic tokens)
 
 ### 3. Install GitHub CLI
 
