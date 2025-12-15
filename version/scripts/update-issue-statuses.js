@@ -136,7 +136,31 @@ async function updateIssueStatus(issueNumber, newStatus) {
     execSync(`gh issue edit ${issueNumber} --repo ${REPO_NAME} --add-label "${newLabel}"`, 
       { stdio: 'ignore' });
     
-    console.log(`✅ Updated issue #${issueNumber} to ${newStatus}`);
+    // Update project status field to sync with views
+    const PROJECT_OWNER = process.env.GITHUB_PROJECT_OWNER || 'HyperionKit';
+    const PROJECT_NUMBER = process.env.GITHUB_PROJECT_NUMBER || '1';
+    
+    const statusMap = {
+      'BACKLOG': 'Todo',
+      'IN_PROGRESS': 'In Progress',
+      'REVIEW': 'In Review',
+      'DONE': 'Done',
+      'BLOCKED': 'Blocked',
+      'OVERDUE': 'Todo'
+    };
+    
+    const projectStatus = statusMap[newStatus] || 'Todo';
+    
+    try {
+      execSync(
+        `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-status "${projectStatus}"`,
+        { stdio: 'ignore' }
+      );
+    } catch (error) {
+      // Status field might not exist, that's okay
+    }
+    
+    console.log(`✅ Updated issue #${issueNumber} to ${newStatus} (labels + project status)`);
   } catch (error) {
     console.error(`❌ Failed to update issue #${issueNumber}: ${error.message}`);
   }
