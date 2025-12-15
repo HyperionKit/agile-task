@@ -108,6 +108,12 @@ jobs:
               ;;
           esac
       
+      - name: Sync project issues
+        if: steps.changed-files.outputs.action != 'update-statuses'
+        run: |
+          # Sync issues to GitHub Project after processing
+          node version/scripts/sync-project-issues.js || echo "Project sync completed"
+      
       - name: Generate summary
         if: always()
         run: |
