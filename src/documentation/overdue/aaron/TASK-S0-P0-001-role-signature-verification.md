@@ -1,13 +1,13 @@
-# TASK-S0-P0-001: Role Signature Verification (CRITICAL)
+# TASK-M3-042: Role Signature Verification (CRITICAL)
 
 ## Metadata
 - Assignee: Aaron
 - Role: CTO/Project Architect
-- Sprint: 0 (Pre-Sprint Critical)
+- Month: 3 (December 2025)
 - Priority: P0 (CRITICAL)
 - Status: OVERDUE
 - Original Due Date: 2025-12-10
-- New Due Date: 2025-12-13
+- New Due Date: 2025-12-15
 - Estimated Hours: 4h
 - Actual Hours: 
 
