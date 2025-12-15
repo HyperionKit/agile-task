@@ -1,253 +1,268 @@
 # HyperKit Sprint Overview
 
-Start Date: 2025-12-12 (Friday)
-Total Duration: 12+ Weeks (MVP + Hyperion Milestones)
+**HyperHack Ideathon Start**: May 14, 2025  
+**Building Milestone Start**: October 1, 2025 (Month 1)  
+**Current Phase**: Month 3 (December 2025) - DeFi Templates & AI Flows
 
-## Sprint Timeline
+## Timeline Overview
 
-| Sprint | Weeks | Date Range | Focus |
-|--------|-------|------------|-------|
-| Sprint 1 | 1-2 | Dec 12-25, 2025 | Infrastructure & Foundation |
-| Sprint 2 | 3-4 | Dec 26 - Jan 8, 2026 | Core HyperAgent |
-| Sprint 3 | 5-6 | Jan 9-22, 2026 | Account Abstraction & Deployment |
-| Sprint 4 | 7-8 | Jan 23 - Feb 5, 2026 | Testing, Alpha Launch |
-| Sprint 5 | 9-10 | Feb 6-20, 2026 | Month 3: DeFi Templates & AI Flows |
-| Sprint 6 | 11-12 | Feb 21 - Mar 10, 2026 | Month 4: Reliability & Security |
-| Sprint 7 | 13-14 | Mar 11-25, 2026 | Month 5: Public Beta |
-| Sprint 8 | 15-16 | Mar 26 - Apr 10, 2026 | Month 6: v1 Launch |
+| Phase | Month | Date Range | Status |
+|-------|-------|------------|--------|
+| Ideathon | May 14 - June 2, 2025 | May 14 - June 2, 2025 | ✅ COMPLETED |
+| Month 1 | October 2025 | Oct 1-31, 2025 | ✅ DELIVERED |
+| Month 2 | November 2025 | Nov 1-30, 2025 | ✅ DELIVERED |
+| Month 3 | December 2025 | Dec 1-31, 2025 | 🔄 IN PROGRESS |
+| Month 4 | January 2026 | Jan 1-31, 2026 | 📋 UPCOMING |
+| Month 5 | February 2026 | Feb 1-28, 2026 | 📋 UPCOMING |
+| Month 6 | March 2026 | Mar 1-31, 2026 | 📋 UPCOMING |
 
----
+## Month-Based Sprint Timeline
 
-## Phase 1: MVP Foundation (Sprints 1-4)
-
-### Sprint 1: Infrastructure & Foundation
-Week 1-2 (Dec 12-25, 2025)
-
-#### Aaron (CTO) Tasks
-| ID | Task | Priority | Due Date | Status |
-|----|------|----------|----------|--------|
-| TASK-S1-001 | Setup GitHub Monorepo | P0 | Dec 15 | BACKLOG |
-| TASK-S1-002 | Configure CI/CD Pipeline | P0 | Dec 16 | BACKLOG |
-| TASK-S1-003 | Database Setup (PostgreSQL + Redis) | P1 | Dec 18 | BACKLOG |
-| TASK-S1-004 | Monitoring Setup (MLflow + Prometheus) | P1 | Dec 20 | BACKLOG |
-| TASK-S1-005 | RPC Provider Setup | P1 | Dec 22 | BACKLOG |
-
-#### Justine (CPOO) Tasks
-| ID | Task | Priority | Due Date | Status |
-|----|------|----------|----------|--------|
-| TASK-S1-006 | Contract Templates Repository | P1 | Dec 16 | BACKLOG |
-| TASK-S1-007 | Product Requirements Documentation | P1 | Dec 18 | BACKLOG |
-| TASK-S1-008 | Mantle Partnership Meeting | P2 | Dec 20 | BACKLOG |
-| TASK-S1-009 | API Design Specification | P1 | Dec 22 | BACKLOG |
-
-#### Tristan (CMFO) Tasks
-| ID | Task | Priority | Due Date | Status |
-|----|------|----------|----------|--------|
-| TASK-S1-010 | Landing Page Design | P1 | Dec 18 | BACKLOG |
-| TASK-S1-011 | Brand Messaging | P2 | Dec 20 | BACKLOG |
-| TASK-S1-012 | Dashboard Wireframes | P1 | Dec 22 | BACKLOG |
+| Month | Weeks | Date Range | Focus | Key Deliverables |
+|-------|-------|------------|-------|------------------|
+| **Month 1** | Oct 1-31 | Oct 1-31, 2025 | Rebranding, AI Generation, Modules | Logo, Dashboard, 100+ users |
+| **Month 2** | Nov 1-30 | Nov 1-30, 2025 | Python SDK, CLI, DeFi Primitives | SDK v0.1.0, Dashboard Beta, 25+ devs |
+| **Month 3** | Dec 1-31 | Dec 1-31, 2025 | DeFi Templates, Security Hardening | 3 Templates, 30+ deployments, Security fixes |
+| **Month 4** | Jan 1-31 | Jan 1-31, 2026 | Reliability, Security Review | 80%+ success rate, Security docs, 3 partners |
+| **Month 5** | Feb 1-28 | Feb 1-28, 2026 | Public Beta, Mainnet Prep | Beta launch, 20-30 builders, SDK RC |
+| **Month 6** | Mar 1-31 | Mar 1-31, 2026 | v1 Launch, Ecosystem | v1 docs, 20-30 devs, 5+ case studies |
 
 ---
 
-### Sprint 2: Core HyperAgent
-Week 3-4 (Dec 26, 2025 - Jan 8, 2026)
+## Month 1: October 2025 - Foundation & MVP
+**Status**: ✅ DELIVERED
 
-#### Aaron (CTO) Tasks
+### Aaron (CTO) Tasks
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S2-013 | Claude 4.5 Integration | P1 | Dec 30 | BACKLOG |
-| TASK-S2-014 | ROMA Planner Implementation | P1 | Jan 2 | BACKLOG |
-| TASK-S2-015 | Multi-Model Router | P1 | Jan 4 | BACKLOG |
-| TASK-S2-016 | Slither Integration | P1 | Jan 6 | BACKLOG |
-| TASK-S2-017 | Cache Layer (Redis) | P2 | Jan 8 | BACKLOG |
+| TASK-M1-001 | AI Model Integration (Claude 4.5 + Llama) | P1 | Oct 15 | DONE |
+| TASK-M1-002 | Artifact Generation Logic | P1 | Oct 21 | DONE |
+| TASK-M1-003 | Structured Logging & Error Reporting | P1 | Oct 21 | DONE |
+| TASK-M1-004 | Code Validation & Security Scanning | P1 | Oct 28 | DONE |
+| TASK-M1-005 | Performance Benchmarks | P1 | Oct 28 | DONE |
+| TASK-M1-006 | Automated Vulnerability Checks | P1 | Oct 28 | DONE |
+| TASK-M1-007 | 95% Uptime Monitoring | P1 | Oct 31 | DONE |
 
-#### Justine (CPOO) Tasks
+### Justine (CPOO) Tasks
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S2-021 | ERC-20 Token Template | P1 | Dec 30 | BACKLOG |
-| TASK-S2-022 | ERC-721 NFT Template | P1 | Jan 2 | BACKLOG |
-| TASK-S2-023 | DeFi Vault Template (ERC-4626) | P1 | Jan 6 | BACKLOG |
+| TASK-M1-008 | Project Types Documentation | P1 | Oct 7 | DONE |
+| TASK-M1-009 | AI Generation Flow UI/UX | P1 | Oct 14 | DONE |
+| TASK-M1-010 | Dashboard Project Controls | P1 | Oct 28 | DONE |
+| TASK-M1-011 | Customizable Module Editor | P1 | Oct 21 | DONE |
+| TASK-M1-012 | Dynamic Preview & Copy-Paste | P1 | Oct 28 | DONE |
+| TASK-M1-013 | Component API Documentation | P1 | Oct 28 | DONE |
+| TASK-M1-014 | Error Handling Guidelines | P1 | Oct 28 | DONE |
+| TASK-M1-015 | Quality Metrics Publication | P1 | Oct 28 | DONE |
+| TASK-M1-016 | Security Documentation | P1 | Oct 28 | DONE |
+| TASK-M1-017 | Architecture Documentation | P1 | Oct 31 | DONE |
+| TASK-M1-018 | Pilot Developer Partnership | P1 | Oct 31 | DONE |
+| TASK-M1-019 | Onboarding Flow Guide | P1 | Oct 31 | DONE |
+| TASK-M1-020 | Weekly Changelogs | P2 | Oct 31 | DONE |
 
-#### Tristan (CMFO) Tasks
+### Tristan (CMFO) Tasks
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S2-025 | Design System & Component Library | P1 | Jan 4 | BACKLOG |
+| TASK-M1-021 | Early Access Program (100 Users) | P1 | Oct 31 | DONE |
+| TASK-M1-022 | Incentivized Feedback Collection | P1 | Oct 31 | DONE |
+| TASK-M1-023 | 50 Social Posts/Mentions | P1 | Oct 31 | DONE |
+| TASK-M1-024 | Developer Advocate Appointment | P1 | Oct 31 | DONE |
+| TASK-M1-025 | Live AMA Session | P1 | Oct 31 | DONE |
+| TASK-M1-026 | Contributor Rewards | P2 | Oct 31 | DONE |
+| TASK-M1-027 | Weekly Forum Discussions | P1 | Oct 31 | DONE |
+| TASK-M1-028 | Technical Tutorials (2/month) | P1 | Oct 31 | DONE |
+| TASK-M1-029 | User Journey Mapping | P1 | Oct 31 | DONE |
 
 ---
 
-### Sprint 3: Account Abstraction & Deployment
-Week 5-6 (Jan 9-22, 2026)
+## Month 2: November 2025 - Expansion
+**Status**: ✅ DELIVERED
 
-#### Aaron (CTO) Tasks
+### Aaron (CTO) Tasks
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S3-018 | ERC-4337 Contract Deployment | P0 | Jan 14 | BACKLOG |
-| TASK-S3-019 | Foundry Setup | P1 | Jan 16 | BACKLOG |
-| TASK-S3-020 | Gas Estimation Engine | P1 | Jan 20 | BACKLOG |
+| TASK-M2-030 | Python SDK v0.1.0 Release | P1 | Nov 14 | DONE |
+| TASK-M2-031 | CLI Tool Expansion (dApp Templates) | P1 | Nov 14 | DONE |
+| TASK-M2-032 | Vault/Swap Contract Development | P1 | Nov 30 | DONE |
+| TASK-M2-033 | Internal Alpha Audit | P1 | Nov 30 | DONE |
 
-#### Justine (CPOO) Tasks
+### Justine (CPOO) Tasks
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S3-024 | API /builds Endpoint | P0 | Jan 14 | BACKLOG |
+| TASK-M2-034 | Visual Dashboard Beta | P1 | Nov 30 | DONE |
+| TASK-M2-035 | Developer Onboarding Drive (25+ devs) | P1 | Nov 30 | DONE |
+| TASK-M2-036 | Cross-Chain Partnership | P1 | Nov 30 | DONE |
+| TASK-M2-037 | Documentation Rollout | P1 | Nov 30 | DONE |
 
-#### Tristan (CMFO) Tasks
+### Tristan (CMFO) Tasks
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S3-026 | Build Wizard UI | P0 | Jan 16 | BACKLOG |
-| TASK-S3-027 | Dashboard Implementation | P1 | Jan 20 | BACKLOG |
+| TASK-M2-038 | Interactive Workshop/AMA | P1 | Nov 30 | DONE |
+| TASK-M2-039 | Support Channel Launch (Discord) | P1 | Nov 30 | DONE |
 
 ---
 
-### Sprint 4: Testing, Alpha Launch
-Week 7-8 (Jan 23 - Feb 5, 2026)
+## Month 3: December 2025 - DeFi Templates & Security Hardening
+**Status**: 🔄 IN PROGRESS
 
-#### Aaron (CTO) Tasks
+### Aaron (CTO) Tasks - SDK/AA Backend
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S4-028 | End-to-End Testing | P0 | Jan 28 | BACKLOG |
-| TASK-S4-029 | Load Testing (100 Concurrent) | P1 | Feb 3 | BACKLOG |
+| TASK-M3-041 | Deployment Safety Checks (Metis/Hyperion) | P1 | Dec 25 | BACKLOG |
+| TASK-M3-SEC-001 | Role Signature Verification | P0 | Dec 15 | OVERDUE |
+| TASK-M3-SEC-002 | Output Bytecode Validator | P0 | Dec 15 | OVERDUE |
+| TASK-M3-SEC-004 | TWAP Oracles (Bridge Safety) | P1 | Dec 20 | BACKLOG |
+| TASK-M3-SEC-005 | Session Key Granular Limits | P1 | Dec 22 | BACKLOG |
+| TASK-M3-SEC-006 | Anti-Flashloan Cooldowns | P1 | Dec 20 | BACKLOG |
+| TASK-M3-SEC-007 | Economic DoS Rate Limiting | P2 | Dec 25 | BACKLOG |
+| TASK-M3-AA-001 | EntryPoint 0.7 Integration | P0 | Dec 18 | BACKLOG |
+| TASK-M3-AA-002 | EIP-7702 Support | P1 | Dec 20 | BACKLOG |
+| TASK-M3-AA-003 | Solana Phantom Integration | P1 | Dec 22 | BACKLOG |
+| TASK-M3-AA-004 | SUI Move Support | P1 | Dec 22 | BACKLOG |
+| TASK-M3-AA-005 | Session Key Infrastructure | P1 | Dec 20 | BACKLOG |
+| TASK-M3-AA-006 | Paymaster Integration | P1 | Dec 25 | BACKLOG |
+| TASK-M3-SDK-001 | Network Registry (100+ chains) | P0 | Dec 18 | BACKLOG |
+| TASK-M3-SDK-002 | Capability Router | P1 | Dec 20 | BACKLOG |
+| TASK-M3-SDK-003 | EVM Adapter | P1 | Dec 20 | BACKLOG |
+| TASK-M3-SDK-004 | Solana Adapter | P1 | Dec 22 | BACKLOG |
+| TASK-M3-SDK-005 | SUI Adapter | P1 | Dec 22 | BACKLOG |
+| TASK-M3-SDK-006 | RPC Pool Manager | P1 | Dec 20 | BACKLOG |
+| TASK-M3-SDK-007 | x402 Router | P1 | Dec 25 | BACKLOG |
 
-#### Justine (CPOO) Tasks
+### Justine (CPOO) Tasks - HyperAgent & Product
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S4-030 | Documentation (API + Quickstart) | P1 | Jan 28 | BACKLOG |
-| TASK-S4-031 | Closed Alpha Program (50 Users) | P1 | Jan 30 | BACKLOG |
+| TASK-M3-040 | HyperAgent Template Integration | P0 | Dec 20 | IN_PROGRESS |
+| TASK-M3-048 | DeFi Templates (Vault, Staking, Swap) | P0 | Dec 20 | IN_PROGRESS |
+| TASK-M3-049 | Dashboard Template Selection | P1 | Dec 20 | BACKLOG |
+| TASK-M3-050 | Pilot Projects (1 Metis, 1 Hyperion) | P1 | Dec 25 | BACKLOG |
+| TASK-M3-051 | Case Study from Pilots | P1 | Dec 28 | BACKLOG |
+| TASK-M3-053 | Feature Request Collection (15+) | P1 | Dec 31 | BACKLOG |
+| TASK-M3-HA-001 | ROMA Planner Integration | P0 | Dec 18 | BACKLOG |
+| TASK-M3-HA-002 | Firecrawl RAG Enhancement | P1 | Dec 20 | BACKLOG |
+| TASK-M3-HA-003 | Solidity Generator | P0 | Dec 18 | BACKLOG |
+| TASK-M3-HA-004 | Audit Orchestration | P1 | Dec 20 | BACKLOG |
+| TASK-M3-HA-005 | LazAI TEE Integration | P1 | Dec 22 | BACKLOG |
+| TASK-M3-HA-006 | Foundry Deployer | P1 | Dec 20 | BACKLOG |
+| TASK-M3-HA-007 | Monitoring & Observability | P1 | Dec 22 | BACKLOG |
+| TASK-M3-HA-008 | Agent Lifecycle Management | P1 | Dec 25 | BACKLOG |
 
-#### Tristan (CMFO) Tasks
+### Tristan (CMFO) Tasks - Frontend/UI/UX
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S4-032 | Wallet Integration | P0 | Jan 28 | BACKLOG |
+| TASK-M3-054 | Dashboard Template UI | P1 | Dec 20 | BACKLOG |
+| TASK-M3-055 | Template of the Week Series | P2 | Dec 28 | BACKLOG |
+| TASK-M3-SEC-003 | Frontend XSS Sanitization | P0 | Dec 15 | OVERDUE |
+| TASK-M3-SEC-008 | Human-in-Loop Dashboard | P2 | Dec 28 | BACKLOG |
+| TASK-M3-HA-009 | HyperAgent Dashboard UI | P1 | Dec 20 | BACKLOG |
 
----
-
-## Phase 2: Hyperion Milestones (Sprints 5-8)
-
-Month 1-2: DELIVERED
-Month 3-6: IN PROGRESS
-
-### Sprint 5: Month 3 - DeFi Templates & AI Flows
-Week 9-10 (Feb 6-20, 2026)
-
-Goal: Deliver DeFi templates for Metis/Hyperion, integrate with HyperAgent.
-
-#### Aaron (CTO) Tasks
-| ID | Task | Priority | Due Date | Status |
-|----|------|----------|----------|--------|
-| TASK-S5-034 | HyperAgent Template Integration | P0 | Feb 18 | BACKLOG |
-| TASK-S5-035 | Deployment Safety Checks | P1 | Feb 22 | BACKLOG |
-
-#### Justine (CPOO) Tasks
-| ID | Task | Priority | Due Date | Status |
-|----|------|----------|----------|--------|
-| TASK-S5-033 | DeFi Templates (Metis & Hyperion) | P0 | Feb 20 | IN_PROGRESS |
-| TASK-S5-037 | Pilot Projects (1 Metis, 1 Hyperion) | P1 | Feb 25 | BACKLOG |
-
-#### Tristan (CMFO) Tasks
-| ID | Task | Priority | Due Date | Status |
-|----|------|----------|----------|--------|
-| TASK-S5-036 | Dashboard Template Selection UI | P1 | Feb 20 | BACKLOG |
-| TASK-S5-038 | Template of the Week Series | P2 | Feb 28 | BACKLOG |
-
-#### Deliverables
-- 3 DeFi templates (vault, staking, swap)
-- HyperAgent prompt-to-template working
-- Dashboard template UI
-- 2 pilot projects
+**Success Criteria**:
+- 3 DeFi templates deployed
 - 30+ testnet deployments
+- 2 pilot projects active
 - 15+ feature requests collected
+- Security fixes implemented
 
 ---
 
-### Sprint 6: Month 4 - Reliability & Security
-Week 11-12 (Feb 21 - Mar 10, 2026)
+## Month 4: January 2026 - Reliability & Security Review
+**Status**: 📋 UPCOMING
 
-Goal: Stabilize deployment, security review, partner playbook.
-
-#### Aaron (CTO) Tasks
+### Aaron (CTO) Tasks - SDK/AA Backend
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S6-039 | Deployment Pipeline Stability | P0 | Mar 10 | BACKLOG |
-| TASK-S6-040 | Internal Security Review | P0 | Mar 15 | BACKLOG |
+| TASK-M4-056 | Deployment Pipeline Stability | P0 | Jan 20 | BACKLOG |
+| TASK-M4-057 | Retry Logic & Status States | P1 | Jan 15 | BACKLOG |
+| TASK-M4-058 | Internal Security Review | P0 | Jan 25 | BACKLOG |
+| TASK-M4-059 | Known Limits Documentation | P1 | Jan 25 | BACKLOG |
+| TASK-M4-060 | Monitoring Hooks (Metis/Hyperion) | P1 | Jan 20 | BACKLOG |
 
-#### Justine (CPOO) Tasks
+### Justine (CPOO) Tasks
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S6-041 | Partner Playbook (Metis/Hyperion) | P1 | Mar 12 | BACKLOG |
+| TASK-M4-063 | Partner Playbook (Metis/Hyperion) | P1 | Jan 20 | BACKLOG |
+| TASK-M4-064 | Active Integration Tracking (3 projects) | P1 | Jan 25 | BACKLOG |
+| TASK-M4-065 | Security Notes & Deployment Guides | P1 | Jan 25 | BACKLOG |
 
-#### Tristan (CMFO) Tasks
+### Tristan (CMFO) Tasks - Frontend/UI/UX
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S6-042 | Builder Office Hours | P1 | Mar 18 | BACKLOG |
+| TASK-M4-062 | Human-in-Loop Dashboard | P2 | Jan 28 | BACKLOG |
+| TASK-M4-066 | Builder Office Hours | P1 | Jan 25 | BACKLOG |
+| TASK-M4-067 | Weekly Highlight Posts (4+) | P1 | Jan 31 | BACKLOG |
 
-#### Deliverables
+**Success Criteria**:
 - 80%+ deployment success rate
 - Security review completed
-- Known limits documented
-- Partner playbook published
 - 3 projects in active integration
 - Office hours held (10+ attendees)
 
 ---
 
-### Sprint 7: Month 5 - Public Beta
-Week 13-14 (Mar 11-25, 2026)
+## Month 5: February 2026 - Public Beta
+**Status**: 📋 UPCOMING
 
-Goal: Open public beta, prepare mainnet flows.
-
-#### Aaron (CTO) Tasks
+### Aaron (CTO) Tasks - SDK/AA Backend
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S7-043 | Public Beta Launch | P0 | Apr 10 | BACKLOG |
+| TASK-M5-068 | Public Beta Launch | P0 | Feb 15 | BACKLOG |
+| TASK-M5-069 | Mainnet-Ready Path (Staking/Vault) | P1 | Feb 25 | BACKLOG |
 
-#### Justine (CPOO) Tasks
+### Justine (CPOO) Tasks
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S7-044 | SDK/CLI Release Candidates | P1 | Apr 5 | BACKLOG |
-| TASK-S7-045 | Monetization Test | P2 | Apr 15 | BACKLOG |
+| TASK-M5-071 | SDK/CLI Release Candidates | P1 | Feb 20 | BACKLOG |
+| TASK-M5-072 | Changelog & Migration Notes | P1 | Feb 20 | BACKLOG |
+| TASK-M5-073 | Monetization Test | P2 | Feb 25 | BACKLOG |
+| TASK-M5-074 | Deeper Partnership (1 project) | P1 | Feb 28 | BACKLOG |
 
-#### Tristan (CMFO) Tasks
+### Tristan (CMFO) Tasks - Frontend/UI/UX
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S7-046 | Beta Cohort Feedback | P1 | Apr 12 | BACKLOG |
+| TASK-M5-070 | Waitlist & Invite System | P1 | Feb 10 | BACKLOG |
+| TASK-M5-075 | Beta Cohort (20-30 builders) | P1 | Feb 20 | BACKLOG |
+| TASK-M5-076 | Structured Feedback Collection | P1 | Feb 25 | BACKLOG |
+| TASK-M5-077 | Top 10 Issues & Features List | P1 | Feb 28 | BACKLOG |
+| TASK-M5-078 | Case Study Posts (2-3) | P1 | Feb 28 | BACKLOG |
 
-#### Deliverables
-- Public beta live
-- 20-30 active builders
-- SDK/CLI release candidates
-- Mainnet-ready flows identified
-- Monetization tested
+**Success Criteria**:
+- 5-10 active external developers
+- SDK/CLI release candidates published
+- 1 production-facing product using HyperKit
 - Structured feedback collected
 
 ---
 
-### Sprint 8: Month 6 - v1 Launch
-Week 15-16 (Mar 26 - Apr 10, 2026)
+## Month 6: March 2026 - v1 Launch & Ecosystem
+**Status**: 📋 UPCOMING
 
-Goal: Define v1 scope, publish documentation, builder spotlights.
-
-#### Aaron (CTO) Tasks
+### Aaron (CTO) Tasks
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S8-047 | Telemetry Dashboard | P1 | May 5 | BACKLOG |
+| TASK-M6-079 | Telemetry Dashboard | P1 | Mar 20 | BACKLOG |
+| TASK-M6-080 | Active Projects Tracking | P1 | Mar 20 | BACKLOG |
+| TASK-M6-081 | Network Split Analytics | P1 | Mar 25 | BACKLOG |
 
-#### Justine (CPOO) Tasks
+### Justine (CPOO) Tasks
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S8-044 | v1 Documentation & Scope | P0 | May 5 | BACKLOG |
-| TASK-S8-048 | Ecosystem Report | P1 | May 8 | BACKLOG |
+| TASK-M6-082 | v1 Scope Documentation | P0 | Mar 20 | BACKLOG |
+| TASK-M6-083 | Complete Onboarding Docs | P0 | Mar 20 | BACKLOG |
+| TASK-M6-084 | v1 Announcement | P0 | Mar 25 | BACKLOG |
+| TASK-M6-085 | Ecosystem Report | P1 | Mar 28 | BACKLOG |
+| TASK-M6-086 | v2 Roadmap Definition | P1 | Mar 31 | BACKLOG |
 
-#### Tristan (CMFO) Tasks
+### Tristan (CMFO) Tasks
 | ID | Task | Priority | Due Date | Status |
 |----|------|----------|----------|--------|
-| TASK-S8-045 | Builder Spotlight Series (3 episodes) | P1 | May 10 | BACKLOG |
-| TASK-S8-049 | Developer Survey | P2 | May 12 | BACKLOG |
+| TASK-M6-087 | Builder Spotlight Series (3 episodes) | P1 | Mar 25 | BACKLOG |
+| TASK-M6-088 | Developer Satisfaction Survey | P2 | Mar 28 | BACKLOG |
+| TASK-M6-089 | v2 Roadmap Communication | P1 | Mar 31 | BACKLOG |
 
-#### Deliverables
-- v1 scope table published
-- Complete onboarding docs
-- Zero to deployed in 15 minutes
-- 20-30 active developers
-- 5+ case studies
+**Success Criteria**:
+- 20-30 active external developers
+- 5+ public case studies
+- v1 scope published
 - v2 roadmap defined
 
 ---
@@ -258,56 +273,79 @@ CRITICAL: Past due, requires immediate attention.
 ### Aaron Tasks
 | ID | Task | Priority | Original Due | New Due | Status |
 |----|------|----------|--------------|---------|--------|
-| TASK-S0-P0-001 | Role Signature Verification | P0 | Dec 10 | Dec 13 | OVERDUE |
-| TASK-S0-P0-002 | Output Bytecode Validator | P0 | Dec 10 | Dec 13 | OVERDUE |
+| TASK-M3-SEC-001 | Role Signature Verification | P0 | Dec 10 | Dec 15 | OVERDUE |
+| TASK-M3-SEC-002 | Output Bytecode Validator | P0 | Dec 10 | Dec 15 | OVERDUE |
 
-### Justine Tasks
+### Tristan Tasks
 | ID | Task | Priority | Original Due | New Due | Status |
 |----|------|----------|--------------|---------|--------|
-| TASK-S0-P0-003 | Session Key Spend Limits | P0 | Dec 11 | Dec 14 | OVERDUE |
+| TASK-M3-SEC-003 | Frontend XSS Sanitization | P0 | Dec 10 | Dec 15 | OVERDUE |
 
 ---
 
-## Success Metrics by Phase
+## Success Metrics by Month
 
-### MVP (Feb 5, 2026)
-- [ ] Build in under 2 minutes
-- [ ] 5 template types working
-- [ ] 50 alpha users
-- [ ] Zero critical vulnerabilities
+### Month 1 (October 2025) - ✅ DELIVERED
+- ✅ MVPs delivered: AI project generation, Hyperkit modules customization, rebranding
+- ✅ 100+ alpha users onboarded
+- ✅ 50+ social posts, 500+ engagements
+- ✅ 1 developer partnership secured
+- ✅ Architecture and onboarding guides published
 
-### Month 3 (Feb 28, 2026)
-- [ ] 30+ testnet deployments
-- [ ] 2 pilot projects
-- [ ] 15+ feature requests
+### Month 2 (November 2025) - ✅ DELIVERED
+- ✅ Python SDK v0.1.0 published
+- ✅ Dashboard Beta launched
+- ✅ 25+ wallet-linked active devs on testnet
+- ✅ 10+ PRs merged from external contributors
+- ✅ Cross-chain partnership secured
 
-### Month 4 (Mar 31, 2026)
-- [ ] 80%+ deployment success
-- [ ] Security review complete
-- [ ] 3 active integrations
+### Month 3 (December 2025) - 🔄 IN PROGRESS
+- [ ] 3 DeFi templates (vault, staking, swap) deployed
+- [ ] 30+ successful testnet deployments
+- [ ] 2 pilot projects (1 Metis, 1 Hyperion) active
+- [ ] 15+ feature requests collected
+- [ ] Security fixes implemented (M3-SEC-001: role verification, M3-SEC-002: bytecode validator, M3-SEC-003: XSS)
+- [ ] HyperAgent prompt-to-template working
 
-### Month 5 (Apr 30, 2026)
-- [ ] 20-30 beta builders
-- [ ] SDK/CLI release candidates
-- [ ] Mainnet-ready flows
+### Month 4 (January 2026) - 📋 UPCOMING
+- [ ] 80%+ deployment success rate
+- [ ] Internal security review completed
+- [ ] Known limits documented
+- [ ] 3 ecosystem projects in active integration
+- [ ] Partner playbook published
+- [ ] Office hours held (10+ attendees)
 
-### Month 6 (May 31, 2026)
-- [ ] v1 published
-- [ ] 20-30 active developers
-- [ ] 5+ case studies
+### Month 5 (February 2026) - 📋 UPCOMING
+- [ ] 5-10 active external developers via public beta
+- [ ] SDK/CLI release candidates published
+- [ ] 1 production-facing product using HyperKit
+- [ ] Mainnet-ready flows identified
+- [ ] Monetization tested
+- [ ] Top 10 issues & features list compiled
+
+### Month 6 (March 2026) - 📋 UPCOMING
+- [ ] 20-30 active external developers
+- [ ] v1 scope table published
+- [ ] Complete onboarding docs (zero to deployed in 15 min)
+- [ ] 5+ public case studies
 - [ ] v2 roadmap defined
+- [ ] Builder spotlight series (3 episodes)
 
 ---
 
 ## Task Naming Convention
 
 ```
-TASK-{Sprint}-{Sequence}-{description}.md
+TASK-M{Month}-{Sequence}-{description}.md
+TASK-M{Month}-{Category}-{Sequence}-{description}.md
 
 Examples:
-- TASK-S1-001-setup-github-monorepo.md
-- TASK-S5-033-defi-templates-metis.md
-- TASK-S0-P0-001-role-signature-verification.md
+- TASK-M1-001-setup-github-monorepo.md
+- TASK-M3-048-defi-templates-metis.md
+- TASK-M3-HA-001-roma-planner.md (HyperAgent)
+- TASK-M3-SDK-001-network-registry.md (SDK)
+- TASK-M3-AA-001-entrypoint-v07.md (Account Abstraction)
+- TASK-M3-SEC-001-role-signature-verification.md (Security)
 ```
 
 ## Status Values
