@@ -24,6 +24,12 @@ HyperKit Project Requirements Documentation (PRD) repository. Central hub for pr
 git clone https://github.com/hyperionkit/PRD.git
 cd PRD
 npm install
+
+# Configure environment variables (required for issue automation)
+cp .env.example .env
+# Edit .env with your GitHub token and project settings
+# Get token from: https://github.com/settings/tokens
+# Required scopes: repo, read:org, read:project, write:project
 ```
 
 ### Commit Changes
