@@ -202,6 +202,16 @@ function createIssueBody(task) {
   const targetDate = task.metadata.due_date || 'TBD';
   const assignee = getGitHubUsername(task.metadata.assignee);
   
+  // Clean up problem and goal text (remove extra newlines, trim, handle escaped newlines)
+  const problemText = (task.problem || 'See PRD Reference for details.')
+    .trim()
+    .replace(/\\n/g, '\n')  // Convert escaped newlines to actual newlines
+    .replace(/\n{3,}/g, '\n\n');  // Remove excessive newlines
+  const goalText = (task.goal || 'See PRD Reference for details.')
+    .trim()
+    .replace(/\\n/g, '\n')  // Convert escaped newlines to actual newlines
+    .replace(/\n{3,}/g, '\n\n');  // Remove excessive newlines
+  
   return `📋 **PRD Reference**: ${repoUrl}
 
 **Owner**: @${assignee}
@@ -212,10 +222,10 @@ function createIssueBody(task) {
 ---
 
 ## Problem
-${task.problem || 'See PRD Reference for details.'}
+${problemText}
 
 ## Goal
-${task.goal || 'See PRD Reference for details.'}
+${goalText}
 
 ## Metadata
 - **Priority**: ${task.metadata.priority || 'N/A'}
@@ -363,8 +373,8 @@ async function createGitHubIssue(task) {
   }
 }
 
-// Update issue status
-async function updateIssueStatus(issueNumber, oldStatus, newStatus, taskName) {
+// Update issue status - syncs labels AND project fields in parallel
+async function updateIssueStatus(issueNumber, oldStatus, newStatus, taskName, task = null) {
   if (oldStatus === newStatus) {
     return;
   }
@@ -391,6 +401,33 @@ async function updateIssueStatus(issueNumber, oldStatus, newStatus, taskName) {
         { stdio: 'ignore' });
     }
     
+    // Update project status field in parallel (ensures Board/Backlog views sync)
+    const statusMap = {
+      'BACKLOG': 'Todo',
+      'IN_PROGRESS': 'In Progress',
+      'REVIEW': 'In Review',
+      'DONE': 'Done',
+      'BLOCKED': 'Blocked',
+      'OVERDUE': 'Todo'
+    };
+    
+    const projectStatus = statusMap[newStatus] || 'Todo';
+    
+    try {
+      execSync(
+        `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-status "${projectStatus}"`,
+        { stdio: 'ignore' }
+      );
+      log(`✅ Updated project status to "${projectStatus}" for issue #${issueNumber}`, 'INFO');
+    } catch (error) {
+      log(`⚠️  Could not update project status: ${error.message}`, 'WARN');
+    }
+    
+    // If task metadata is provided, update ALL project fields (Priority, Dates, Iteration)
+    if (task) {
+      await updateProjectStatus(issueNumber, task);
+    }
+    
     // Add comment for significant status changes
     if (['IN_PROGRESS', 'REVIEW', 'DONE', 'OVERDUE'].includes(newStatus)) {
       const comment = `📊 **Status Updated**: ${oldStatus} → ${newStatus}\n\n` +
@@ -399,7 +436,7 @@ async function updateIssueStatus(issueNumber, oldStatus, newStatus, taskName) {
         { stdio: 'ignore' });
     }
     
-    log(`Updated issue #${issueNumber} status to ${newStatus}`, 'INFO');
+    log(`✅ Updated issue #${issueNumber} status to ${newStatus} (label + project field synced)`, 'INFO');
   } catch (error) {
     log(`Failed to update issue #${issueNumber}: ${error.message}`, 'ERROR');
   }
@@ -500,10 +537,11 @@ async function addIssueToProject(issueNumber, task) {
   }
 }
 
-// Update project status field to sync with views
+// Update all project fields to sync with views (Status, Priority, Iteration, Dates)
 async function updateProjectStatus(issueNumber, task) {
   try {
     const status = task.metadata.status || 'BACKLOG';
+    const priority = task.metadata.priority || 'P2';
     
     // Map status to project status values
     const statusMap = {
@@ -515,21 +553,108 @@ async function updateProjectStatus(issueNumber, task) {
       'OVERDUE': 'Todo' // Overdue items stay in Todo but with priority label
     };
     
-    const projectStatus = statusMap[status] || 'Todo';
+    // Map priority to project priority values
+    const priorityMap = {
+      'P0': 'Critical',
+      'P1': 'High',
+      'P2': 'Medium',
+      'P3': 'Low'
+    };
     
-    // Try to update status field using gh project command
+    const projectStatus = statusMap[status] || 'Todo';
+    const projectPriority = priorityMap[priority] || 'Medium';
+    
+    // Calculate dates
+    let startDate = null;
+    let targetDate = null;
+    
+    if (task.metadata.due_date) {
+      try {
+        const dueDate = new Date(task.metadata.due_date);
+        const start = new Date(dueDate);
+        start.setDate(start.getDate() - 7);
+        startDate = start.toISOString().split('T')[0];
+        targetDate = task.metadata.due_date;
+      } catch (e) {
+        // Invalid date, skip
+      }
+    }
+    
+    // Calculate sprint/iteration from month
+    let iteration = null;
+    if (task.metadata.month) {
+      const monthMatch = task.metadata.month.match(/Month (\d+)/);
+      if (monthMatch) {
+        iteration = `Month ${monthMatch[1]}`;
+      }
+    }
+    
+    // Update all project fields in parallel
+    const updates = [];
+    
+    // Update Status (most important - controls Board columns)
     try {
       execSync(
         `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-status "${projectStatus}"`,
         { stdio: 'ignore' }
       );
-      log(`Updated project status to "${projectStatus}" for issue #${issueNumber}`, 'INFO');
+      log(`✅ Updated project status to "${projectStatus}" for issue #${issueNumber}`, 'INFO');
     } catch (error) {
-      // Status field might not exist or have different name, that's okay
-      log(`Could not update project status field: ${error.message}`, 'WARN');
+      log(`⚠️  Could not update status field: ${error.message}`, 'WARN');
     }
+    
+    // Update Priority
+    try {
+      execSync(
+        `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-priority "${projectPriority}"`,
+        { stdio: 'ignore' }
+      );
+      log(`✅ Updated project priority to "${projectPriority}" for issue #${issueNumber}`, 'INFO');
+    } catch (error) {
+      // Priority field might not exist, that's okay
+    }
+    
+    // Update Start date
+    if (startDate) {
+      try {
+        execSync(
+          `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-start-date "${startDate}"`,
+          { stdio: 'ignore' }
+        );
+        log(`✅ Updated start date to "${startDate}" for issue #${issueNumber}`, 'INFO');
+      } catch (error) {
+        // Start date field might not exist, that's okay
+      }
+    }
+    
+    // Update Target date
+    if (targetDate) {
+      try {
+        execSync(
+          `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-target-date "${targetDate}"`,
+          { stdio: 'ignore' }
+        );
+        log(`✅ Updated target date to "${targetDate}" for issue #${issueNumber}`, 'INFO');
+      } catch (error) {
+        // Target date field might not exist, that's okay
+      }
+    }
+    
+    // Update Iteration (if field exists)
+    if (iteration) {
+      try {
+        execSync(
+          `gh project item-edit ${PROJECT_NUMBER} --owner ${PROJECT_OWNER} --url "${REPO_NAME}/issues/${issueNumber}" --field-iteration "${iteration}"`,
+          { stdio: 'ignore' }
+        );
+        log(`✅ Updated iteration to "${iteration}" for issue #${issueNumber}`, 'INFO');
+      } catch (error) {
+        // Iteration field might not exist, that's okay
+      }
+    }
+    
   } catch (error) {
-    log(`Failed to update project status: ${error.message}`, 'WARN');
+    log(`Failed to update project fields: ${error.message}`, 'WARN');
   }
 }
 
@@ -604,7 +729,7 @@ async function syncTaskWithIssue(task, taskFilePath) {
   if (isOverdue) {
     const existingIssue = await findIssueByTaskName(task.taskName);
     if (existingIssue && existingIssue.state === 'open') {
-      await updateIssueStatus(existingIssue.number, task.metadata.status, 'OVERDUE', task.taskName);
+      await updateIssueStatus(existingIssue.number, task.metadata.status, 'OVERDUE', task.taskName, task);
       execSync(`gh issue edit ${existingIssue.number} --repo ${REPO_NAME} --add-label "status:overdue,priority:critical"`, 
         { stdio: 'ignore' });
       const comment = '⚠️ Task marked as OVERDUE';
@@ -620,6 +745,40 @@ async function syncTaskWithIssue(task, taskFilePath) {
   if (existingIssue) {
     // Update existing issue
     if (existingIssue.state === 'open') {
+      // Update issue body with new format
+      const newBody = createIssueBody(task);
+      const tempBodyFile = path.join(__dirname, '../../.github/temp-issue-body.md');
+      const tempDir = path.dirname(tempBodyFile);
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      fs.writeFileSync(tempBodyFile, newBody, 'utf-8');
+      
+      try {
+        execSync(
+          `gh issue edit ${existingIssue.number} --repo ${REPO_NAME} --body-file "${tempBodyFile}"`,
+          { encoding: 'utf-8', stdio: 'pipe' }
+        );
+        log(`✅ Updated issue #${existingIssue.number} body`, 'INFO');
+      } catch (error) {
+        log(`⚠️  Failed to update issue body: ${error.message}`, 'WARN');
+      } finally {
+        if (fs.existsSync(tempBodyFile)) {
+          fs.unlinkSync(tempBodyFile);
+        }
+      }
+      
+      // Update assignee if changed
+      const assignee = getGitHubUsername(task.metadata.assignee);
+      try {
+        execSync(
+          `gh issue edit ${existingIssue.number} --repo ${REPO_NAME} --assignee ${assignee}`,
+          { stdio: 'ignore' }
+        );
+      } catch (error) {
+        // Assignee might already be set, ignore
+      }
+      
       const currentStatus = task.metadata.status || 'BACKLOG';
       const existingLabels = existingIssue.labels.map(l => l.name);
       const currentStatusLabel = existingLabels.find(l => l.startsWith('status:'));
@@ -628,13 +787,41 @@ async function syncTaskWithIssue(task, taskFilePath) {
         const existingStatus = Object.keys(STATUS_LABELS).find(
           k => STATUS_LABELS[k] === currentStatusLabel
         );
-        await updateIssueStatus(existingIssue.number, existingStatus, currentStatus, task.taskName);
+        await updateIssueStatus(existingIssue.number, existingStatus, currentStatus, task.taskName, task);
       }
       
-      return `Issue #${existingIssue.number} already exists`;
+      // Update project status
+      await updateProjectStatus(existingIssue.number, task);
+      
+      return `Updated issue #${existingIssue.number}`;
     } else {
-      log(`Issue #${existingIssue.number} exists but is closed`, 'INFO');
-      return `Issue #${existingIssue.number} (closed)`;
+      // Issue is closed, but still update body formatting if needed
+      log(`Issue #${existingIssue.number} exists but is closed, updating body formatting...`, 'INFO');
+      
+      // Update issue body with new format
+      const newBody = createIssueBody(task);
+      const tempBodyFile = path.join(__dirname, '../../.github/temp-issue-body.md');
+      const tempDir = path.dirname(tempBodyFile);
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      fs.writeFileSync(tempBodyFile, newBody, 'utf-8');
+      
+      try {
+        execSync(
+          `gh issue edit ${existingIssue.number} --repo ${REPO_NAME} --body-file "${tempBodyFile}"`,
+          { encoding: 'utf-8', stdio: 'pipe' }
+        );
+        log(`✅ Updated issue #${existingIssue.number} body formatting`, 'INFO');
+      } catch (error) {
+        log(`⚠️  Failed to update issue body: ${error.message}`, 'WARN');
+      } finally {
+        if (fs.existsSync(tempBodyFile)) {
+          fs.unlinkSync(tempBodyFile);
+        }
+      }
+      
+      return `Updated issue #${existingIssue.number} (closed, formatting fixed)`;
     }
   } else {
     // Create new issue
