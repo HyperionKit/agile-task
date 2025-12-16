@@ -5,7 +5,7 @@
 - Role: CPOO/Product Lead
 - Month: 4 (January 2026)
 - Priority: P1
-- Status: BACKLOG
+- Status: IN_PROGRESS
 - Due Date: 2026-01-25
 - Estimated Hours: 10h
 - Actual Hours: 
